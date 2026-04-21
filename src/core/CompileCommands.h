@@ -80,7 +80,7 @@ bool vACDM::OnCompileCommand(const char *sCommandLine) {
             return true;
         }
         if (false == isNumber(elements[2]) ||
-            std::stoi(elements[2]) < minUpdateCycleSeconds && std::stoi(elements[2]) > maxUpdateCycleSeconds) {
+            std::stoi(elements[2]) < minUpdateCycleSeconds || std::stoi(elements[2]) > maxUpdateCycleSeconds) {
             DisplayMessage("Usage: .vacdm UPDATERATE value");
             DisplayMessage("Value must be number between " + std::to_string(minUpdateCycleSeconds) + " and " +
                            std::to_string(maxUpdateCycleSeconds));
@@ -89,6 +89,30 @@ bool vACDM::OnCompileCommand(const char *sCommandLine) {
 
         DisplayMessage(DataManager::instance().setUpdateCycleSeconds(std::stoi(elements[2])));
 
+        return true;
+    } else if (std::string::npos != command.find("UNEXEMPT")) {
+        const auto elements = vacdm::utils::String::splitString(command, " ");
+        if (elements.size() < 3) {
+            DisplayMessage("Usage: .vacdm UNEXEMPT <CALLSIGN>");
+            return true;
+        }
+        Json::Value root;
+        root["callsign"] = elements[2];
+        root["exemptFromCdm"] = false;
+        com::Server::instance().sendPatchMessage("/api/v1/pilots/" + elements[2], root);
+        DisplayMessage(elements[2] + " removed from CDM-exempt");
+        return true;
+    } else if (std::string::npos != command.find("EXEMPT")) {
+        const auto elements = vacdm::utils::String::splitString(command, " ");
+        if (elements.size() < 3) {
+            DisplayMessage("Usage: .vacdm EXEMPT <CALLSIGN>");
+            return true;
+        }
+        Json::Value root;
+        root["callsign"] = elements[2];
+        root["exemptFromCdm"] = true;
+        com::Server::instance().sendPatchMessage("/api/v1/pilots/" + elements[2], root);
+        DisplayMessage(elements[2] + " marked as CDM-exempt (VIP/medical/SAR)");
         return true;
     }
     return false;

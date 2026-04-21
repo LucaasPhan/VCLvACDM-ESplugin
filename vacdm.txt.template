@@ -1,0 +1,24 @@
+# VCLvACDM Plugin Configuration - VCL vACC Vietnam
+# Copy this file to vacdm.txt and update SERVER_url before use
+
+SERVER_url=https://api.vclacdm.vclvacc.net
+UPDATE_RATE_SECONDS=5
+
+# Colour scheme (RGB, comma-separated)
+# TSAT window open -> dark green
+COLOR_lightgreen=127,252,73
+COLOR_lightblue=53,218,235
+COLOR_green=0,181,27
+COLOR_blue=0,0,255
+COLOR_lightyellow=255,255,191
+COLOR_yellow=255,255,0
+COLOR_orange=255,153,0
+COLOR_red=255,0,0
+COLOR_grey=153,153,153
+COLOR_white=255,255,255
+COLOR_debug=255,0,255
+
+# Vietnam airports - these must be configured on the backend
+# VVTS = Tan Son Nhat (SGN) - Full A-CDM
+# VVNB = Noi Bai (HAN) - Phase 1 A-CDM
+# VVDN = Da Nang (DAD) - Pre-CDM (read-only, no TSAT)

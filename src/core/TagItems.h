@@ -25,6 +25,9 @@ enum itemType {
     ASRT,
     AORT,
     CTOT,
+    FLTTYPE,
+    GROUND_HANDLER,
+    EXEMPT,
     ECFMP_MEASURES,
     EVENT_BOOKING,
 };
@@ -41,6 +44,9 @@ void vACDM::RegisterTagItemTypes() {
     RegisterTagItemType("ASRT", itemType::ASRT);
     RegisterTagItemType("AORT", itemType::AORT);
     RegisterTagItemType("CTOT", itemType::CTOT);
+    RegisterTagItemType("FLT TYPE", itemType::FLTTYPE);
+    RegisterTagItemType("GND HDL", itemType::GROUND_HANDLER);
+    RegisterTagItemType("EXEMPT", itemType::EXEMPT);
     RegisterTagItemType("Event Booking", itemType::EVENT_BOOKING);
     RegisterTagItemType("ECFMP Measures", itemType::ECFMP_MEASURES);
 }
@@ -75,6 +81,15 @@ void vACDM::OnGetTagItem(EuroScopePlugIn::CFlightPlan FlightPlan, EuroScopePlugI
     auto pilot = DataManager::instance().getPilot(callsign);
 
     std::stringstream outputText;
+    const bool exempt = pilot.exemptFromCdm;
+
+    if (exempt && (ItemCode == static_cast<int>(itemType::TOBT) || ItemCode == static_cast<int>(itemType::TSAT) ||
+                   ItemCode == static_cast<int>(itemType::TTOT) || ItemCode == static_cast<int>(itemType::CTOT))) {
+        outputText << "----";
+        *pRGB = Color::pluginConfig.grey;
+        std::strcpy(sItemString, outputText.str().c_str());
+        return;
+    }
 
     switch (static_cast<itemType>(ItemCode)) {
         case itemType::EOBT:
@@ -88,6 +103,11 @@ void vACDM::OnGetTagItem(EuroScopePlugIn::CFlightPlan FlightPlan, EuroScopePlugI
         case itemType::TSAT:
             outputText << formatTime(pilot.tsat);
             *pRGB = Color::colorizeTsat(pilot);
+            if (pilot.ctot != types::defaultTime && pilot.ttot != types::defaultTime) {
+                const auto diffSeconds =
+                    std::abs(std::chrono::duration_cast<std::chrono::seconds>(pilot.ttot - pilot.ctot).count());
+                if (diffSeconds > 300) *pRGB = Color::pluginConfig.red;
+            }
             break;
         case itemType::TTOT:
             outputText << formatTime(pilot.ttot);
@@ -121,7 +141,19 @@ void vACDM::OnGetTagItem(EuroScopePlugIn::CFlightPlan FlightPlan, EuroScopePlugI
             break;
         case itemType::CTOT:
             outputText << formatTime(pilot.ctot);
-            *pRGB = Color::colorizeCtot(pilot);
+            *pRGB = (pilot.ctot == types::defaultTime) ? Color::pluginConfig.grey : Color::pluginConfig.orange;
+            break;
+        case itemType::FLTTYPE:
+            outputText << (pilot.flightType == "DOMESTIC" ? "DOM" : "INT");
+            *pRGB = Color::pluginConfig.grey;
+            break;
+        case itemType::GROUND_HANDLER:
+            outputText << pilot.groundHandler;
+            *pRGB = Color::pluginConfig.grey;
+            break;
+        case itemType::EXEMPT:
+            outputText << (exempt ? "LOCK" : "");
+            *pRGB = Color::pluginConfig.grey;
             break;
         case itemType::ECFMP_MEASURES:
             if (false == pilot.measures.empty()) {

@@ -3,3 +3,5 @@
 /build/
 out/
 CMakeUserPresets.json
+.cursor/
+.DS_Store

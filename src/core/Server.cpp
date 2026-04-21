@@ -1,5 +1,6 @@
 #include "Server.h"
 
+#include <cctype>
 #include <numeric>
 
 #include "Version.h"
@@ -55,6 +56,7 @@ Server::Server()
       m_deleteRequest(),
       m_apiIsChecked(false),
       m_apiIsValid(false),
+      m_backendOnline(false),
       m_baseUrl("https://app.vacdm.net"),
       m_clientIsMaster(false),
       m_errorCode() {
@@ -140,7 +142,7 @@ bool Server::checkWebApi() {
 
     __receivedGetData.clear();
 
-    std::string url = m_baseUrl + "/api/v1/version";
+    std::string url = m_baseUrl + "/api/v1/health";
     curl_easy_setopt(m_getRequest.socket, CURLOPT_URL, url.c_str());
 
     // send the GET request
@@ -154,24 +156,29 @@ bool Server::checkWebApi() {
     auto reader = std::unique_ptr<Json::CharReader>(builder.newCharReader());
     std::string errors;
     Json::Value root;
-    Logger::instance().log(Logger::LogSender::Server, "Received API-version-message: " + __receivedGetData,
+    Logger::instance().log(Logger::LogSender::Server, "Received backend health response: " + __receivedGetData,
                            Logger::LogLevel::Info);
     if (reader->parse(__receivedGetData.c_str(), __receivedGetData.c_str() + __receivedGetData.length(), &root,
                       &errors)) {
-        if (PLUGIN_VERSION_MAJOR != root.get("major", Json::Value(-1)).asInt()) {
-            this->m_errorCode = "Backend-version is incompatible. Please update the plugin.";
+        if (root.get("status", Json::Value("")).asString() != "ok") {
+            this->m_errorCode = "Backend health endpoint returned invalid status";
             this->m_apiIsValid = false;
+            this->m_backendOnline = false;
         } else {
             this->m_apiIsValid = true;
+            this->m_backendOnline = true;
         }
 
     } else {
-        this->m_errorCode = "Invalid backend-version response: " + __receivedGetData;
+        this->m_errorCode = "Invalid backend-health response: " + __receivedGetData;
         this->m_apiIsValid = false;
+        this->m_backendOnline = false;
     }
     m_apiIsChecked = true;
     return this->m_apiIsValid;
 }
+
+bool Server::backendOnline() const { return this->m_backendOnline; }
 
 Server::ServerConfiguration Server::getServerConfig() {
     if (false == this->m_apiIsChecked || false == this->m_apiIsValid) return Server::ServerConfiguration();
@@ -214,9 +221,10 @@ std::list<types::Pilot> Server::getPilots(const std::list<std::string> airports)
 
         std::string url = m_baseUrl + "/api/v1/pilots";
         if (airports.size() != 0) {
-            url += "?adep=" +
-                   std::accumulate(std::next(airports.begin()), airports.end(), airports.front(),
-                                   [](const std::string& acc, const std::string& str) { return acc + "&adep=" + str; });
+            url +=
+                "?airport=" +
+                std::accumulate(std::next(airports.begin()), airports.end(), airports.front(),
+                                [](const std::string& acc, const std::string& str) { return acc + "&airport=" + str; });
         }
         Logger::instance().log(Logger::LogSender::Server, url, Logger::LogLevel::Info);
 
@@ -241,6 +249,7 @@ std::list<types::Pilot> Server::getPilots(const std::list<std::string> airports)
                     pilots.push_back(types::Pilot());
 
                     pilots.back().callsign = pilot["callsign"].asString();
+                    pilots.back().cid = pilot.get("cid", Json::Value("")).asString();
                     pilots.back().lastUpdate = utils::Date::isoStringToTimestamp(pilot["updatedAt"].asString());
                     pilots.back().inactive = pilot["inactive"].asBool();
 
@@ -250,25 +259,41 @@ std::list<types::Pilot> Server::getPilots(const std::list<std::string> airports)
                     pilots.back().taxizoneIsTaxiout = pilot["vacdm"]["taxizoneIsTaxiout"].asBool();
 
                     // flightplan & clearance data
-                    pilots.back().origin = pilot["flightplan"]["departure"].asString();
-                    pilots.back().destination = pilot["flightplan"]["arrival"].asString();
-                    pilots.back().runway = pilot["clearance"]["dep_rwy"].asString();
+                    pilots.back().origin = pilot.isMember("adep") ? pilot["adep"].asString()
+                                                                   : pilot["flightplan"]["departure"].asString();
+                    pilots.back().destination = pilot.isMember("ades") ? pilot["ades"].asString()
+                                                                        : pilot["flightplan"]["arrival"].asString();
+                    pilots.back().runway = pilot.isMember("runway") ? pilot["runway"].asString()
+                                                                     : pilot["clearance"]["dep_rwy"].asString();
                     pilots.back().sid = pilot["clearance"]["sid"].asString();
+                    pilots.back().aircraft = pilot.get("aircraft", Json::Value("")).asString();
+                    pilots.back().flightType = pilot.get("flightType", Json::Value("")).asString();
+                    pilots.back().airline = pilot.get("airline", Json::Value("")).asString();
+                    pilots.back().groundHandler = pilot["groundHandler"].isNull()
+                                                      ? ""
+                                                      : pilot.get("groundHandler", Json::Value("")).asString();
+                    pilots.back().exemptFromCdm = pilot.get("exemptFromCdm", Json::Value(false)).asBool();
 
                     // ACDM procedure data
-                    pilots.back().eobt = utils::Date::isoStringToTimestamp(pilot["vacdm"]["eobt"].asString());
-                    pilots.back().tobt = utils::Date::isoStringToTimestamp(pilot["vacdm"]["tobt"].asString());
-                    pilots.back().tobt_state = pilot["vacdm"]["tobt_state"].asString();
-                    pilots.back().ctot = utils::Date::isoStringToTimestamp(pilot["vacdm"]["ctot"].asString());
-                    pilots.back().ttot = utils::Date::isoStringToTimestamp(pilot["vacdm"]["ttot"].asString());
-                    pilots.back().tsat = utils::Date::isoStringToTimestamp(pilot["vacdm"]["tsat"].asString());
+                    const Json::Value vacdm = pilot.isMember("vacdm") ? pilot["vacdm"] : Json::Value();
+                    const auto fieldOrLegacy = [&pilot, &vacdm](const char* field) -> Json::Value {
+                        if (pilot.isMember(field)) return pilot[field];
+                        if (vacdm.isObject() && vacdm.isMember(field)) return vacdm[field];
+                        return Json::Value();
+                    };
+                    pilots.back().eobt = utils::Date::isoStringToTimestamp(fieldOrLegacy("eobt").asString());
+                    pilots.back().tobt = utils::Date::isoStringToTimestamp(fieldOrLegacy("tobt").asString());
+                    pilots.back().tobt_state = fieldOrLegacy("tobt_state").asString();
+                    pilots.back().ctot = utils::Date::isoStringToTimestamp(fieldOrLegacy("ctot").asString());
+                    pilots.back().ttot = utils::Date::isoStringToTimestamp(fieldOrLegacy("ttot").asString());
+                    pilots.back().tsat = utils::Date::isoStringToTimestamp(fieldOrLegacy("tsat").asString());
                     pilots.back().exot =
-                        std::chrono::utc_clock::time_point(std::chrono::minutes(pilot["vacdm"]["exot"].asInt64()));
-                    pilots.back().asat = utils::Date::isoStringToTimestamp(pilot["vacdm"]["asat"].asString());
-                    pilots.back().aobt = utils::Date::isoStringToTimestamp(pilot["vacdm"]["aobt"].asString());
-                    pilots.back().atot = utils::Date::isoStringToTimestamp(pilot["vacdm"]["atot"].asString());
-                    pilots.back().asrt = utils::Date::isoStringToTimestamp(pilot["vacdm"]["asrt"].asString());
-                    pilots.back().aort = utils::Date::isoStringToTimestamp(pilot["vacdm"]["aort"].asString());
+                        std::chrono::utc_clock::time_point(std::chrono::minutes(fieldOrLegacy("exot").asInt64()));
+                    pilots.back().asat = utils::Date::isoStringToTimestamp(fieldOrLegacy("asat").asString());
+                    pilots.back().aobt = utils::Date::isoStringToTimestamp(fieldOrLegacy("aobt").asString());
+                    pilots.back().atot = utils::Date::isoStringToTimestamp(fieldOrLegacy("atot").asString());
+                    pilots.back().asrt = utils::Date::isoStringToTimestamp(fieldOrLegacy("asrt").asString());
+                    pilots.back().aort = utils::Date::isoStringToTimestamp(fieldOrLegacy("aort").asString());
 
                     // ECFMP measures
                     Json::Value measuresArray = pilot["measures"];
@@ -368,25 +393,44 @@ void Server::postPilot(types::Pilot pilot) {
     Json::Value root;
 
     root["callsign"] = pilot.callsign;
-    root["inactive"] = false;
-
-    root["position"] = Json::Value();
-    root["position"]["lat"] = pilot.latitude;
-    root["position"]["lon"] = pilot.longitude;
-
-    root["flightplan"] = Json::Value();
-    root["flightplan"]["departure"] = pilot.origin;
-    root["flightplan"]["arrival"] = pilot.destination;
-
-    root["vacdm"] = Json::Value();
-    root["vacdm"]["eobt"] = utils::Date::timestampToIsoString(pilot.eobt);
-    root["vacdm"]["tobt"] = utils::Date::timestampToIsoString(pilot.tobt);
-
-    root["clearance"] = Json::Value();
-    root["clearance"]["dep_rwy"] = pilot.runway;
-    root["clearance"]["sid"] = pilot.sid;
+    root["cid"] = pilot.cid;
+    root["adep"] = pilot.origin;
+    root["ades"] = pilot.destination;
+    root["eobt"] = utils::Date::timestampToIsoString(pilot.eobt);
+    root["runway"] = pilot.runway;
+    root["taxizone"] = Json::Value::nullSingleton();
+    root["aircraft"] = pilot.aircraft;
+    const bool isDomestic = pilot.origin.rfind("VV", 0) == 0 && pilot.destination.rfind("VV", 0) == 0;
+    root["flightType"] = pilot.flightType.empty() ? (isDomestic ? "DOMESTIC" : "INTERNATIONAL") : pilot.flightType;
+    root["airline"] = pilot.airline;
+    root["groundHandler"] = Json::Value::nullSingleton();
+    root["exemptFromCdm"] = false;
 
     this->sendPostMessage("/api/v1/pilots", root);
+}
+
+bool Server::isReadOnlyAirport(const std::string& icao) {
+    if (icao.empty()) return false;
+    std::lock_guard guard(m_getRequest.lock);
+    if (m_getRequest.socket == nullptr) return false;
+
+    __receivedGetData.clear();
+    std::string url = m_baseUrl + "/api/v1/airports/" + icao;
+    curl_easy_setopt(m_getRequest.socket, CURLOPT_URL, url.c_str());
+    CURLcode result = curl_easy_perform(m_getRequest.socket);
+    if (result != CURLE_OK) return false;
+
+    Json::CharReaderBuilder builder{};
+    auto reader = std::unique_ptr<Json::CharReader>(builder.newCharReader());
+    std::string errors;
+    Json::Value root;
+    if (!reader->parse(__receivedGetData.c_str(), __receivedGetData.c_str() + __receivedGetData.length(), &root,
+                       &errors)) {
+        return false;
+    }
+
+    const std::string status = root.get("acdmStatus", Json::Value("FULL")).asString();
+    return status == "PRE_CDM" || status == "INACTIVE";
 }
 
 void Server::updateExot(const std::string& callsign, const std::chrono::utc_clock::time_point& exot) {
