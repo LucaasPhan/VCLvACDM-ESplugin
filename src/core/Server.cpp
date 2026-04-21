@@ -49,7 +49,7 @@ static std::size_t receiveCurlPost(void* ptr, std::size_t size, std::size_t nmem
 }
 
 Server::Server()
-    : m_authToken(),
+    : m_apiKey(),
       m_getRequest(),
       m_postRequest(),
       m_patchRequest(),
@@ -75,11 +75,6 @@ Server::Server()
     curl_easy_setopt(m_postRequest.socket, CURLOPT_WRITEFUNCTION, receiveCurlPost);
     curl_easy_setopt(m_postRequest.socket, CURLOPT_CUSTOMREQUEST, "POST");
     curl_easy_setopt(m_postRequest.socket, CURLOPT_VERBOSE, 1);
-    struct curl_slist* headers = nullptr;
-    headers = curl_slist_append(headers, "Accept: application/json");
-    headers = curl_slist_append(headers, ("Authorization: Bearer " + this->m_authToken).c_str());
-    headers = curl_slist_append(headers, "Content-Type: application/json");
-    curl_easy_setopt(m_postRequest.socket, CURLOPT_HTTPHEADER, headers);
 
     /* configure the patch request */
     curl_easy_setopt(m_patchRequest.socket, CURLOPT_SSL_VERIFYPEER, 0L);
@@ -88,7 +83,6 @@ Server::Server()
     curl_easy_setopt(m_patchRequest.socket, CURLOPT_WRITEFUNCTION, receiveCurlPatch);
     curl_easy_setopt(m_patchRequest.socket, CURLOPT_CUSTOMREQUEST, "PATCH");
     curl_easy_setopt(m_patchRequest.socket, CURLOPT_VERBOSE, 1);
-    curl_easy_setopt(m_patchRequest.socket, CURLOPT_HTTPHEADER, headers);
 
     /* configure the delete request */
     curl_easy_setopt(m_deleteRequest.socket, CURLOPT_SSL_VERIFYPEER, 0L);
@@ -97,6 +91,20 @@ Server::Server()
     curl_easy_setopt(m_deleteRequest.socket, CURLOPT_CUSTOMREQUEST, "DELETE");
     curl_easy_setopt(m_deleteRequest.socket, CURLOPT_WRITEFUNCTION, receiveCurlDelete);
     curl_easy_setopt(m_deleteRequest.socket, CURLOPT_TIMEOUT, 2L);
+}
+
+void Server::setApiKey(const std::string& apiKey) {
+    this->m_apiKey = apiKey;
+
+    struct curl_slist* headers = nullptr;
+    headers = curl_slist_append(headers, "Accept: application/json");
+    headers = curl_slist_append(headers, ("x-api-key: " + this->m_apiKey).c_str());
+    headers = curl_slist_append(headers, "Content-Type: application/json");
+
+    curl_easy_setopt(m_getRequest.socket, CURLOPT_HTTPHEADER, headers);
+    curl_easy_setopt(m_postRequest.socket, CURLOPT_HTTPHEADER, headers);
+    curl_easy_setopt(m_patchRequest.socket, CURLOPT_HTTPHEADER, headers);
+    curl_easy_setopt(m_deleteRequest.socket, CURLOPT_HTTPHEADER, headers);
 }
 
 Server::~Server() {
@@ -269,9 +277,6 @@ std::list<types::Pilot> Server::getPilots(const std::list<std::string> airports)
                     pilots.back().aircraft = pilot.get("aircraft", Json::Value("")).asString();
                     pilots.back().flightType = pilot.get("flightType", Json::Value("")).asString();
                     pilots.back().airline = pilot.get("airline", Json::Value("")).asString();
-                    pilots.back().groundHandler = pilot["groundHandler"].isNull()
-                                                      ? ""
-                                                      : pilot.get("groundHandler", Json::Value("")).asString();
                     pilots.back().exemptFromCdm = pilot.get("exemptFromCdm", Json::Value(false)).asBool();
 
                     // ACDM procedure data
@@ -403,7 +408,6 @@ void Server::postPilot(types::Pilot pilot) {
     const bool isDomestic = pilot.origin.rfind("VV", 0) == 0 && pilot.destination.rfind("VV", 0) == 0;
     root["flightType"] = pilot.flightType.empty() ? (isDomestic ? "DOMESTIC" : "INTERNATIONAL") : pilot.flightType;
     root["airline"] = pilot.airline;
-    root["groundHandler"] = Json::Value::nullSingleton();
     root["exemptFromCdm"] = false;
 
     this->sendPostMessage("/api/v1/pilots", root);

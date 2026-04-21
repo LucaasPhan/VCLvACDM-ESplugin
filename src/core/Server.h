@@ -28,7 +28,7 @@ class Server {
         Communication() : lock(), socket(curl_easy_init()) {}
     };
 
-    std::string m_authToken;
+    std::string m_apiKey;
     Communication m_getRequest;
     Communication m_postRequest;
     Communication m_patchRequest;
@@ -52,6 +52,7 @@ class Server {
     static Server& instance();
 
     void changeServerAddress(const std::string& url);
+    void setApiKey(const std::string& apiKey);
     bool checkWebApi();
     ServerConfiguration_t getServerConfig();
     std::list<types::Pilot> getPilots(const std::list<std::string> airports);

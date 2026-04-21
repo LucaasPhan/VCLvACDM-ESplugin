@@ -2,6 +2,7 @@
 # Copy this file to vacdm.txt and update SERVER_url before use
 
 SERVER_url=https://api.vclacdm.vclvacc.net
+API_KEY=your_api_key_here
 UPDATE_RATE_SECONDS=5
 
 # Colour scheme (RGB, comma-separated)

@@ -101,7 +101,10 @@ void vACDM::reloadConfiguration(bool initialLoading) {
         DisplayMessage(true == initialLoading ? "Loaded the config" : "Reloaded the config", "Config");
         if (this->m_pluginConfig.serverUrl != newConfig.serverUrl)
             this->changeServerUrl(newConfig.serverUrl);
-        else
+        
+        Server::instance().setApiKey(newConfig.apiKey);
+        
+        if (this->m_pluginConfig.serverUrl == newConfig.serverUrl)
             this->checkServerConfiguration();
 
         this->m_pluginConfig = newConfig;

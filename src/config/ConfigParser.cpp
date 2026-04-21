@@ -80,6 +80,9 @@ bool ConfigParser::parse(const std::string &filename, PluginConfig &config) {
         if ("SERVER_url" == values[0]) {
             config.serverUrl = values[1];
             parsed = true;
+        } else if ("API_KEY" == values[0]) {
+            config.apiKey = values[1];
+            parsed = true;
         } else if ("UPDATE_RATE_SECONDS" == values[0]) {
             try {
                 const int updateCycleSeconds = std::stoi(values[1]);
