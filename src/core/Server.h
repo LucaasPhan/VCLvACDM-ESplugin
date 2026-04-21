@@ -7,6 +7,7 @@
 #include <list>
 #include <mutex>
 #include <string>
+#include <chrono>
 
 #include "types/Pilot.h"
 
@@ -36,10 +37,12 @@ class Server {
 
     bool m_apiIsChecked;
     bool m_apiIsValid;
+    bool m_backendOnline;
     std::string m_baseUrl;
     bool m_clientIsMaster;
     std::string m_errorCode;
     ServerConfiguration m_serverConfiguration;
+    mutable std::mutex m_stateLock;
 
    public:
     ~Server();
@@ -54,10 +57,12 @@ class Server {
     void changeServerAddress(const std::string& url);
     void setApiKey(const std::string& apiKey);
     bool checkWebApi();
+    bool backendOnline() const;
     ServerConfiguration_t getServerConfig();
     std::list<types::Pilot> getPilots(const std::list<std::string> airports);
     void postPilot(types::Pilot);
     void patchPilot(const Json::Value& root);
+    bool isReadOnlyAirport(const std::string& icao);
 
     /// @brief Sends a post message to the specififed endpoint url with the root as content
     /// @param endpointUrl endpoint url to send the request to
