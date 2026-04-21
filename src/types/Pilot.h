@@ -2,6 +2,7 @@
 
 #include <chrono>
 #include <string>
+#include <vector>
 
 #include "Ecfmp.h"
 
@@ -11,6 +12,7 @@ static constexpr std::chrono::utc_clock::time_point defaultTime =
 
 typedef struct Pilot_t {
     std::string callsign;
+    std::string cid;
     std::chrono::utc_clock::time_point lastUpdate = defaultTime;
 
     bool inactive = false;
@@ -27,6 +29,11 @@ typedef struct Pilot_t {
     std::string destination;
     std::string runway;
     std::string sid;
+    std::string aircraft;
+    std::string flightType;
+    std::string airline;
+    std::string groundHandler;
+    bool exemptFromCdm = false;
 
     // ACDM procedure data
 
