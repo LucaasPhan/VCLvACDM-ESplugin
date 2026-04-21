@@ -57,7 +57,7 @@ void vACDM::checkServerConfiguration() {
         DisplayMessage("Connection failed.", "Server");
         DisplayMessage(Server::instance().errorMessage().c_str(), "Server");
     } else {
-        std::string serverName = Server::instance().getServerConfig().name;
+        std::string serverName = "VCLvACDM system";
         DisplayMessage(("Connected to " + serverName), "Server");
         // set active airports and runways
         this->OnAirportRunwayActivityChanged();
