@@ -49,7 +49,7 @@ vACDM::vACDM()
 vACDM::~vACDM() {}
 
 void vACDM::DisplayMessage(const std::string &message, const std::string &sender) {
-    DisplayUserMessage("vACDM", sender.c_str(), message.c_str(), true, false, false, false, false);
+    DisplayUserMessage("VCLvACDM", sender.c_str(), message.c_str(), true, false, false, false, false);
 }
 
 void vACDM::checkServerConfiguration() {
