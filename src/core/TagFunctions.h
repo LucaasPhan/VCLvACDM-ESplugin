@@ -98,12 +98,17 @@ void vACDM::OnFunctionCall(int functionId, const char *itemString, POINT pt, REC
             if (clock.length() == 4 && isNumber(clock)) {
                 const auto hours = std::atoi(clock.substr(0, 2).c_str());
                 const auto minutes = std::atoi(clock.substr(2, 4).c_str());
-                if (hours >= 0 && hours < 24 && minutes >= 0 && minutes < 60)
-                    DataManager::instance().handleTagFunction(DataManager::MessageType::UpdateTOBTConfirmed,
-                                                              pilot.callsign,
-                                                              utils::Date::convertStringToTimePoint(clock));
-                else
+                if (hours >= 0 && hours < 24 && minutes >= 0 && minutes < 60) {
+                    const auto tobt = utils::Date::convertStringToTimePoint(clock);
+                    if (tobt < std::chrono::utc_clock::now()) {
+                        DisplayMessage("Cannot set TOBT to a past time. Please enter a future time.");
+                    } else {
+                        DataManager::instance().handleTagFunction(DataManager::MessageType::UpdateTOBTConfirmed,
+                                                                  pilot.callsign, tobt);
+                    }
+                } else {
                     DisplayMessage("Invalid time format. Expected: HHMM (24 hours)");
+                }
             } else if (clock.length() != 0) {
                 DisplayMessage("Invalid time format. Expected: HHMM (24 hours)");
             }
@@ -156,8 +161,12 @@ void vACDM::OnFunctionCall(int functionId, const char *itemString, POINT pt, REC
             break;
         }
         case TOBT_CONFIRM: {
-            DataManager::instance().handleTagFunction(DataManager::MessageType::UpdateTOBTConfirmed, pilot.callsign,
-                                                      pilot.tobt);
+            if (pilot.tobt < std::chrono::utc_clock::now()) {
+                DisplayMessage("Cannot confirm overdue TOBT. Please update to a future time.");
+            } else {
+                DataManager::instance().handleTagFunction(DataManager::MessageType::UpdateTOBTConfirmed, pilot.callsign,
+                                                          pilot.tobt);
+            }
             break;
         }
         case OFFBLOCK_REQUEST: {
