@@ -14,6 +14,7 @@ struct PluginConfig {
     int updateCycleSeconds = 5;
     COLORREF lightgreen = RGB(127, 252, 73);
     COLORREF lightblue = RGB(53, 218, 235);
+    COLORREF darkgreen = RGB(0, 128, 0);
     COLORREF green = RGB(0, 181, 27);
     COLORREF blue = RGB(0, 0, 255);
     COLORREF lightyellow = RGB(255, 255, 191);

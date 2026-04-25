@@ -7,7 +7,7 @@ IF(BUILD_TESTING)
     )
     
     TARGET_LINK_LIBRARIES(tests PRIVATE
-        vACDM 
+        VCLvACDM
         GTest::gtest_main
         GTest::gtest
     )

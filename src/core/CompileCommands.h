@@ -148,10 +148,6 @@ bool vACDM::OnCompileCommand(const char *sCommandLine) {
         
         // Handle time (absolute or relative)
         if (time == "9999") {
-            // Send DELETE
-            com::Server::instance().sendDeleteMessage("/api/v1/airports/" + icao + "/delays/" + runway + "/" + type); // wait, delete is /api/v1/airports/:icao/delays? No, spec says: DELETE /api/v1/airports/:icao/delays when sentinel 9999 received. But runway and type are needed?
-            // Actually spec: DELETE /api/v1/airports/:icao/delays when sentinel 9999 received. We should pass runway and type. 
-            // Wait, I will just call DELETE /api/v1/airports/:icao/delays?runway=...&type=...
             std::string url = "/api/v1/airports/" + icao + "/delays?runway=" + rwy + "&type=" + type;
             com::Server::instance().sendDeleteMessage(url);
             DisplayMessage("Delay removed for " + icao + " " + rwy);
