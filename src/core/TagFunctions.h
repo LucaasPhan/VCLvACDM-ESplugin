@@ -38,6 +38,11 @@ enum itemFunction {
     RESET_AOBT_AND_STATE,
     RESET_MENU,
     RESET_PILOT,
+    TSAC_NOW,
+    TSAC_MANUAL,
+    TSAC_MANUAL_EDIT,
+    TSAC_MENU,
+    TSAC_REMOVE,
 };
 
 void vACDM::RegisterTagItemFuntions() {
@@ -59,6 +64,11 @@ void vACDM::RegisterTagItemFuntions() {
     RegisterTagItemFunction("Reset AOBT", RESET_AOBT_AND_STATE);
     RegisterTagItemFunction("Reset Menu", RESET_MENU);
     RegisterTagItemFunction("Reset pilot", RESET_PILOT);
+    
+    // TSAC Functions
+    RegisterTagItemFunction("TSAC now", TSAC_NOW);
+    RegisterTagItemFunction("Set TSAC", TSAC_MANUAL);
+    RegisterTagItemFunction("TSAC menu", TSAC_MENU);
 }
 
 void vACDM::OnFunctionCall(int functionId, const char *itemString, POINT pt, RECT area) {
@@ -220,6 +230,43 @@ void vACDM::OnFunctionCall(int functionId, const char *itemString, POINT pt, REC
         case RESET_PILOT:
             DataManager::instance().handleTagFunction(DataManager::MessageType::ResetPilot, pilot.callsign,
                                                       types::defaultTime);
+            break;
+        case TSAC_NOW:
+            if (pilot.tsat != types::defaultTime) {
+                DataManager::instance().handleTagFunction(DataManager::MessageType::UpdateTSAC, pilot.callsign,
+                                                          pilot.tsat);
+            }
+            break;
+        case TSAC_MANUAL:
+            OpenPopupEdit(area, TSAC_MANUAL_EDIT, "");
+            break;
+        case TSAC_MANUAL_EDIT: {
+            std::string clock(itemString);
+            if (clock.length() == 4 && isNumber(clock)) {
+                const auto hours = std::atoi(clock.substr(0, 2).c_str());
+                const auto minutes = std::atoi(clock.substr(2, 4).c_str());
+                if (hours >= 0 && hours < 24 && minutes >= 0 && minutes < 60) {
+                    const auto tsacTime = utils::Date::convertStringToTimePoint(clock);
+                    DataManager::instance().handleTagFunction(DataManager::MessageType::UpdateTSAC, pilot.callsign,
+                                                              tsacTime);
+                } else {
+                    DisplayMessage("Invalid time format. Expected: HHMM (24 hours)");
+                }
+            } else if (clock.length() != 0) {
+                DisplayMessage("Invalid time format. Expected: HHMM (24 hours)");
+            }
+            break;
+        }
+        case TSAC_MENU:
+            OpenPopupList(area, "TSAC menu", 1);
+            AddPopupListElement("TSAC now", NULL, TSAC_NOW, false, 2, false, false);
+            AddPopupListElement("TSAC edit", NULL, TSAC_MANUAL, false, 2, false, false);
+            AddPopupListElement("Remove TSAC", NULL, TSAC_REMOVE, false, 2, false, false);
+            break;
+        case TSAC_REMOVE:
+            DataManager::instance().handleTagFunction(DataManager::MessageType::UpdateTSAC, pilot.callsign,
+                                                      types::defaultTime);
+            break;
             break;
         default:
             break;

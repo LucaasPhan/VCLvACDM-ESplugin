@@ -6,7 +6,7 @@ Windows EuroScope DLL plugin for VCL vACC that syncs departures with the VCLvACD
 
 - Toolchain: CMake + Conan + MSVC
 - Output DLL target: `VCLvACDM.dll`
-- Config file copied to build output: `vacdm.txt`
+- Config file: `vacdm.txt`
 
 ## Controller Setup
 
@@ -15,20 +15,29 @@ Windows EuroScope DLL plugin for VCL vACC that syncs departures with the VCLvACD
 3. Place `VCLvACDM.dll` and `vacdm.txt` in the EuroScope plugin directory.
 4. Load plugin in EuroScope.
 
-Default backend URL:
-
-- `https://api.vclacdm.vclvacc.net`
-
 ## Dot Commands
 
-- `.vacdm master` - enable write mode
-- `.vacdm slave` - enable read-only mode
-- `.vacdm reload` - reload `vacdm.txt`
-- `.vacdm log on|off|debug` - logging controls
-- `.vacdm loglevel <sender> <level>` - per-sender logging level
-- `.vacdm updaterate <1-10>` - backend poll interval
-- `.vacdm exempt <callsign>` - set `exemptFromCdm=true`
-- `.vacdm unexempt <callsign>` - set `exemptFromCdm=false`
+### Core Management
+- `.vacdm master` — Enable write mode. Only the Master controller can push updates to the backend.
+- `.vacdm slave` — Enable read-only mode (default).
+- `.vacdm reload` — Reload settings from `vacdm.txt` without restarting EuroScope.
+- `.vacdm updaterate <seconds>` — Set the poll interval (e.g., `.vacdm updaterate 5`). Valid range: 1–30s.
+
+### Flight & Sequence Control
+- `.vacdm exempt <callsign>` — Mark a flight as CDM-exempt (VIP, SAR, Medical). Renders as `----` in sequence.
+- `.vacdm unexempt <callsign>` — Remove exempt status and return flight to the sequence.
+- `.vacdm lvo <ICAO>` — Activate Low Visibility Operations (LVO) rate for an airport.
+
+### Delay Restrictions
+- `.vacdm startupdelay <ICAO>/<RWY> <TIME>` — Shift TSATs for a specific runway.
+- `.vacdm departuredelay <ICAO>/<RWY> <TIME>` — Shift TTOTs for a specific runway.
+    - **Absolute Time**: Use 4 digits (e.g., `1230`).
+    - **Relative Time**: Use 1–2 digits for minutes from now (e.g., `15` for now + 15m).
+    - **Clear**: Use `9999` to remove the delay restriction.
+
+### Logging
+- `.vacdm log on|off|debug` — Toggle plugin logging.
+- `.vacdm loglevel <sender> <level>` — Set logging level per module.
 
 ## Vietnam-specific behavior
 

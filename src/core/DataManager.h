@@ -59,7 +59,8 @@ class DataManager {
         ResetTOBTConfirmed,
         ResetAORT,
         ResetAOBT,
-        ResetPilot
+        ResetPilot,
+        UpdateTSAC
     };
 
    private:

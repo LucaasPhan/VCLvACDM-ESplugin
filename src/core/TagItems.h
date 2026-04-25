@@ -30,6 +30,9 @@ enum itemType {
     EXEMPT,
     ECFMP_MEASURES,
     EVENT_BOOKING,
+    TSAC,
+    TOBT_SET_BY,
+    E_STATUS,
 };
 
 void vACDM::RegisterTagItemTypes() {
@@ -49,6 +52,9 @@ void vACDM::RegisterTagItemTypes() {
     RegisterTagItemType("EXEMPT", itemType::EXEMPT);
     RegisterTagItemType("Event Booking", itemType::EVENT_BOOKING);
     RegisterTagItemType("ECFMP Measures", itemType::ECFMP_MEASURES);
+    RegisterTagItemType("TSAC", itemType::TSAC);
+    RegisterTagItemType("TOBT-SET-BY", itemType::TOBT_SET_BY);
+    RegisterTagItemType("E", itemType::E_STATUS);
 }
 
 std::string formatTime(const std::chrono::utc_clock::time_point timepoint) {
@@ -91,6 +97,14 @@ void vACDM::OnGetTagItem(EuroScopePlugIn::CFlightPlan FlightPlan, EuroScopePlugI
         return;
     }
 
+    std::string eStatus = "C";
+    const auto now = std::chrono::utc_clock::now();
+    if (pilot.eobt != types::defaultTime && pilot.eobt > now + std::chrono::minutes(35)) {
+        eStatus = "P";
+    } else if (pilot.tsat != types::defaultTime && pilot.tsat + std::chrono::minutes(6) < now && pilot.asat == types::defaultTime) {
+        eStatus = "I";
+    }
+
     switch (static_cast<itemType>(ItemCode)) {
         case itemType::EOBT:
             outputText << formatTime(pilot.eobt);
@@ -101,17 +115,27 @@ void vACDM::OnGetTagItem(EuroScopePlugIn::CFlightPlan FlightPlan, EuroScopePlugI
             *pRGB = Color::colorizeTobt(pilot);
             break;
         case itemType::TSAT:
-            outputText << formatTime(pilot.tsat);
-            *pRGB = Color::colorizeTsat(pilot);
-            if (pilot.ctot != types::defaultTime && pilot.ttot != types::defaultTime) {
-                const auto diffSeconds =
-                    std::abs(std::chrono::duration_cast<std::chrono::seconds>(pilot.ttot - pilot.ctot).count());
-                if (diffSeconds > 300) *pRGB = Color::pluginConfig.red;
+            if (eStatus == "P") {
+                outputText << "~~";
+                *pRGB = Color::pluginConfig.darkgreen;
+            } else {
+                outputText << formatTime(pilot.tsat);
+                *pRGB = Color::colorizeTsat(pilot);
+                if (pilot.ctot != types::defaultTime && pilot.ttot != types::defaultTime) {
+                    const auto diffSeconds =
+                        std::abs(std::chrono::duration_cast<std::chrono::seconds>(pilot.ttot - pilot.ctot).count());
+                    if (diffSeconds > 300) *pRGB = Color::pluginConfig.red;
+                }
             }
             break;
         case itemType::TTOT:
-            outputText << formatTime(pilot.ttot);
-            *pRGB = Color::colorizeTtot(pilot);
+            if (eStatus == "P") {
+                outputText << "~~";
+                *pRGB = Color::pluginConfig.darkgreen;
+            } else {
+                outputText << formatTime(pilot.ttot);
+                *pRGB = Color::colorizeTtot(pilot);
+            }
             break;
         case itemType::EXOT:
             if (pilot.exot.time_since_epoch().count() > 0) {
@@ -167,6 +191,24 @@ void vACDM::OnGetTagItem(EuroScopePlugIn::CFlightPlan FlightPlan, EuroScopePlugI
         case itemType::EVENT_BOOKING:
             outputText << (pilot.hasBooking ? "B" : "");
             *pRGB = Color::colorizeEventBooking(pilot);
+            break;
+        case itemType::TSAC:
+            outputText << pilot.tsac;
+            if (!pilot.tsac.empty() && pilot.tsat != types::defaultTime) {
+                const auto tsacTime = utils::Date::convertStringToTimePoint(pilot.tsac);
+                const auto diffMins = std::abs(std::chrono::duration_cast<std::chrono::minutes>(pilot.tsat - tsacTime).count());
+                *pRGB = (diffMins <= 5) ? Color::pluginConfig.darkgreen : Color::pluginConfig.orange;
+            } else {
+                *pRGB = Color::pluginConfig.orange;
+            }
+            break;
+        case itemType::TOBT_SET_BY:
+            outputText << pilot.tobtSetBy;
+            *pRGB = Color::pluginConfig.darkgreen;
+            break;
+        case itemType::E_STATUS:
+            outputText << eStatus;
+            *pRGB = Color::pluginConfig.darkgreen;
             break;
         default:
             break;

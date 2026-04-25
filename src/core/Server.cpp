@@ -299,6 +299,10 @@ std::list<types::Pilot> Server::getPilots(const std::list<std::string> airports)
                     pilots.back().atot = utils::Date::isoStringToTimestamp(fieldOrLegacy("atot").asString());
                     pilots.back().asrt = utils::Date::isoStringToTimestamp(fieldOrLegacy("asrt").asString());
                     pilots.back().aort = utils::Date::isoStringToTimestamp(fieldOrLegacy("aort").asString());
+                    
+                    // Phase 1+ fields
+                    pilots.back().tsac = pilot.get("tsac", Json::Value("")).asString();
+                    pilots.back().tobtSetBy = pilot.get("tobtSetBy", Json::Value("")).asString();
 
                     // ECFMP measures
                     Json::Value measuresArray = pilot["measures"];
@@ -510,6 +514,37 @@ void Server::updateAort(const std::string& callsign, const std::chrono::utc_cloc
     root["vacdm"]["aort"] = utils::Date::timestampToIsoString(aort);
 
     this->sendPatchMessage("/api/v1/pilots/" + callsign, root);
+}
+
+void Server::updateTsac(const std::string& callsign, const std::chrono::utc_clock::time_point& tsac) {
+    Json::Value root;
+    root["callsign"] = callsign;
+    if (tsac == types::defaultTime) {
+        root["tsac"] = Json::Value::nullSingleton();
+    } else {
+        // format as HHMM
+        char buf[10];
+        std::snprintf(buf, sizeof(buf), "%02d%02d", 
+                      (int)std::chrono::duration_cast<std::chrono::hours>(tsac.time_since_epoch() % std::chrono::hours(24)).count(),
+                      (int)std::chrono::duration_cast<std::chrono::minutes>(tsac.time_since_epoch() % std::chrono::hours(1)).count());
+        root["tsac"] = buf;
+    }
+    this->sendPatchMessage("/api/v1/pilots/" + callsign, root);
+}
+
+void Server::toggleLvo(const std::string& icao, bool active) {
+    Json::Value root;
+    root["active"] = active;
+    this->sendPostMessage("/api/v1/airports/" + icao + "/lvo", root);
+}
+
+void Server::postDelay(const std::string& icao, const std::string& runway, const std::string& type, const std::string& time) {
+    Json::Value root;
+    root["airport"] = icao;
+    root["runway"] = runway;
+    root["type"] = type;
+    root["fromTime"] = time;
+    this->sendPostMessage("/api/v1/airports/" + icao + "/delays", root);
 }
 
 void Server::resetTobt(const std::string& callsign, const std::chrono::utc_clock::time_point& tobt,

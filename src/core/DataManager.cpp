@@ -174,6 +174,10 @@ void DataManager::processAsynchronousMessages(std::map<std::string, std::array<t
                 pilots.erase(message.callsign);
                 messageType = "Pilot reset";
                 break;
+            case MessageType::UpdateTSAC:
+                Server::instance().updateTsac(message.callsign, message.value);
+                messageType = "TSAC update";
+                break;
 
             default:
                 break;
@@ -288,9 +292,19 @@ void DataManager::handleTagFunction(MessageType type, const std::string callsign
             pilot.asat = types::defaultTime;
             pilot.aobt = types::defaultTime;
             pilot.atot = types::defaultTime;
-            pilot.atot = types::defaultTime;
             pilot.asrt = types::defaultTime;
             pilot.aort = types::defaultTime;
+            break;
+        case MessageType::UpdateTSAC:
+            if (value == types::defaultTime) {
+                pilot.tsac = "";
+            } else {
+                char buf[10];
+                std::snprintf(buf, sizeof(buf), "%02d%02d", 
+                              (int)std::chrono::duration_cast<std::chrono::hours>(value.time_since_epoch() % std::chrono::hours(24)).count(),
+                              (int)std::chrono::duration_cast<std::chrono::minutes>(value.time_since_epoch() % std::chrono::hours(1)).count());
+                pilot.tsac = buf;
+            }
             break;
         default:
             break;

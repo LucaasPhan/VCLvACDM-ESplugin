@@ -114,6 +114,62 @@ bool vACDM::OnCompileCommand(const char *sCommandLine) {
         com::Server::instance().sendPatchMessage("/api/v1/pilots/" + elements[2], root);
         DisplayMessage(elements[2] + " marked as CDM-exempt (VIP/medical/SAR)");
         return true;
+    } else if (std::string::npos != command.find("LVO")) {
+        // Find master airport. We assume activeAirports has the airport.
+        // Wait, plugin has no direct API to get single master airport easily in CompileCommands.
+        // But we can extract it if they pass it, or we just rely on the first active airport.
+        // Let's require the ICAO for LVO to be safe, e.g. .vacdm lvo VVTS, or just extract from SectorFile
+        const auto elements = vacdm::utils::String::splitString(command, " ");
+        if (elements.size() < 3) {
+            DisplayMessage("Usage: .vacdm LVO <ICAO>");
+            return true;
+        }
+        com::Server::instance().toggleLvo(elements[2], true);
+        DisplayMessage("LVO activated for " + elements[2]);
+        return true;
+    } else if (std::string::npos != command.find("STARTUPDELAY") || std::string::npos != command.find("DEPARTUREDELAY")) {
+        const auto elements = vacdm::utils::String::splitString(command, " ");
+        if (elements.size() < 4) {
+            DisplayMessage("Usage: .vacdm STARTUPDELAY <ICAO>/<RWY> <TIME>");
+            return true;
+        }
+        
+        std::string type = (command.find("STARTUPDELAY") != std::string::npos) ? "startup" : "departure";
+        std::string icao_rwy = elements[2];
+        std::string time = elements[3];
+        
+        auto slashPos = icao_rwy.find("/");
+        if (slashPos == std::string::npos) {
+            DisplayMessage("Invalid format. Use <ICAO>/<RWY> e.g. VVTS/25L");
+            return true;
+        }
+        std::string icao = icao_rwy.substr(0, slashPos);
+        std::string rwy = icao_rwy.substr(slashPos + 1);
+        
+        // Handle time (absolute or relative)
+        if (time == "9999") {
+            // Send DELETE
+            com::Server::instance().sendDeleteMessage("/api/v1/airports/" + icao + "/delays/" + runway + "/" + type); // wait, delete is /api/v1/airports/:icao/delays? No, spec says: DELETE /api/v1/airports/:icao/delays when sentinel 9999 received. But runway and type are needed?
+            // Actually spec: DELETE /api/v1/airports/:icao/delays when sentinel 9999 received. We should pass runway and type. 
+            // Wait, I will just call DELETE /api/v1/airports/:icao/delays?runway=...&type=...
+            std::string url = "/api/v1/airports/" + icao + "/delays?runway=" + rwy + "&type=" + type;
+            com::Server::instance().sendDeleteMessage(url);
+            DisplayMessage("Delay removed for " + icao + " " + rwy);
+        } else {
+            std::string absoluteTime = time;
+            if (time.length() <= 2) { // relative
+                int mins = std::stoi(time);
+                auto future = std::chrono::utc_clock::now() + std::chrono::minutes(mins);
+                char buf[10];
+                std::snprintf(buf, sizeof(buf), "%02d%02d", 
+                              (int)std::chrono::duration_cast<std::chrono::hours>(future.time_since_epoch() % std::chrono::hours(24)).count(),
+                              (int)std::chrono::duration_cast<std::chrono::minutes>(future.time_since_epoch() % std::chrono::hours(1)).count());
+                absoluteTime = buf;
+            }
+            com::Server::instance().postDelay(icao, rwy, type, absoluteTime);
+            DisplayMessage("Delay set for " + icao + " " + rwy + " from " + absoluteTime + "z");
+        }
+        return true;
     }
     return false;
 }

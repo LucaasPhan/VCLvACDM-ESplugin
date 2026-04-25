@@ -81,10 +81,14 @@ class Server {
     void updateAsrt(const std::string& callsign, const std::chrono::utc_clock::time_point& asrt);
     void updateAobt(const std::string& callsign, const std::chrono::utc_clock::time_point& aobt);
     void updateAort(const std::string& callsign, const std::chrono::utc_clock::time_point& aort);
+    void updateTsac(const std::string& callsign, const std::chrono::utc_clock::time_point& tsac);
 
     void resetTobt(const std::string& callsign, const std::chrono::utc_clock::time_point& tobt,
                    const std::string& tobtState);
     void deletePilot(const std::string& callsign);
+
+    void toggleLvo(const std::string& icao, bool active);
+    void postDelay(const std::string& icao, const std::string& runway, const std::string& type, const std::string& time);
 
     const std::string& errorMessage() const;
     void setMaster(bool master);

@@ -5,3 +5,17 @@ out/
 CMakeUserPresets.json
 .cursor/
 .DS_Store
+
+# Conan / CMake Generated
+*.cmake
+!CMakeLists.txt
+conanbuild*
+conanrun*
+conandeps*
+cmakedeps*
+deactivate_conan*
+*.sh
+!conanfile.txt
+!conanprofile
+
+graphify-out/cache
