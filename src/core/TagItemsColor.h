@@ -234,9 +234,6 @@ class Color {
 
     // other:
 
-    static COLORREF colorizeEcfmpMeasure(const types::Pilot &pilot) {
-        return pilot.measures.empty() ? pluginConfig.grey : pluginConfig.green;
-    }
 
     static COLORREF colorizeEventBooking(const types::Pilot &pilot) {
         return pilot.hasBooking ? pluginConfig.green : pluginConfig.grey;

@@ -4,7 +4,6 @@
 #include <string>
 #include <vector>
 
-#include "Ecfmp.h"
 
 namespace vacdm::types {
 static constexpr std::chrono::utc_clock::time_point defaultTime =
@@ -53,9 +52,6 @@ typedef struct Pilot_t {
     std::string tobtSetBy;
     bool tsatReset = false;
 
-    // ECFMP Measures
-
-    std::vector<EcfmpMeasure> measures;
 
     // event booking data
 

@@ -28,7 +28,6 @@ enum itemType {
     FLTTYPE,
     GROUND_HANDLER,
     EXEMPT,
-    ECFMP_MEASURES,
     EVENT_BOOKING,
     TSAC,
     TOBT_SET_BY,
@@ -52,7 +51,6 @@ void vACDM::RegisterTagItemTypes() {
     RegisterTagItemType("GND HDL", itemType::GROUND_HANDLER);
     RegisterTagItemType("EXEMPT", itemType::EXEMPT);
     RegisterTagItemType("Event Booking", itemType::EVENT_BOOKING);
-    RegisterTagItemType("ECFMP Measures", itemType::ECFMP_MEASURES);
     RegisterTagItemType("TSAC", itemType::TSAC);
     RegisterTagItemType("TOBT-SET-BY", itemType::TOBT_SET_BY);
     RegisterTagItemType("E", itemType::E_STATUS);
@@ -180,15 +178,6 @@ void vACDM::OnGetTagItem(EuroScopePlugIn::CFlightPlan FlightPlan, EuroScopePlugI
         case itemType::EXEMPT:
             outputText << (exempt ? "LOCK" : "");
             *pRGB = Color::pluginConfig.grey;
-            break;
-        case itemType::ECFMP_MEASURES:
-            if (false == pilot.measures.empty()) {
-                const std::int64_t measureMinutes = pilot.measures[0].value / 60;
-                const std::int64_t measureSeconds = pilot.measures[0].value % 60;
-
-                outputText << std::format("{:02}:{:02}", measureMinutes, measureSeconds);
-                *pRGB = Color::colorizeEcfmpMeasure(pilot);
-            }
             break;
         case itemType::EVENT_BOOKING:
             outputText << (pilot.hasBooking ? "B" : "");

@@ -26,7 +26,6 @@ VCLvACDM Plugin — forked C++ EuroScope DLL, adapted for VCL vACC Vietnam. Conn
 - Add a second HTTP library — `libcurl` is already wired, use it
 - Modify files in `/EuroScope/` SDK — read-only reference, never edit
 - Use `std::cout` for output — use the EuroScope `DisplayUserMessage` function
-- Rename the existing ECFMP-related files — leave them as-is even if unused
 - Output a DLL named anything other than `VCLvACDM.dll`
 - Use C++20 features — target C++17 for MSVC compatibility
 

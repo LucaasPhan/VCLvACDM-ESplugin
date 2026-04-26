@@ -313,18 +313,6 @@ std::list<types::Pilot> Server::getPilots(const std::list<std::string> airports)
                     pilots.back().tobtSetBy = pilot.get("tobtSetBy", Json::Value("")).asString();
                     pilots.back().tsatReset = pilot.get("tsatReset", Json::Value(false)).asBool();
 
-                    // ECFMP measures
-                    Json::Value measuresArray = pilot["measures"];
-                    std::vector<types::EcfmpMeasure> parsedMeasures;
-                    for (const auto& measureObject : std::as_const(measuresArray)) {
-                        vacdm::types::EcfmpMeasure measure;
-
-                        measure.ident = measureObject["ident"].asString();
-                        measure.value = measureObject["value"].asInt();
-
-                        parsedMeasures.push_back(measure);
-                    }
-                    pilots.back().measures = parsedMeasures;
 
                     // event booking data
                     pilots.back().hasBooking = pilot["hasBooking"].asBool();
