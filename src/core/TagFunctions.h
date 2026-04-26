@@ -74,15 +74,13 @@ void vACDM::RegisterTagItemFuntions() {
 void vACDM::OnFunctionCall(int functionId, const char *itemString, POINT pt, RECT area) {
     std::ignore = pt;
 
-    // do not handle functions if client is not master
-    if (false == Server::instance().getMaster()) return;
-
     auto flightplan = FlightPlanSelectASEL();
     std::string callsign(flightplan.GetCallsign());
 
     if (false == DataManager::instance().checkPilotExists(callsign)) return;
 
     auto pilot = DataManager::instance().getPilot(callsign);
+    if (!Server::instance().isMaster(pilot.origin)) return;
 
     switch (static_cast<itemFunction>(functionId)) {
         case EXOT_MODIFY:

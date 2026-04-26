@@ -14,6 +14,7 @@ class StatusPanel : public EuroScopePlugIn::CRadarScreen {
 public:
     StatusPanel() {}
     virtual ~StatusPanel() {}
+    void OnAsrContentToBeClosed(void) override {}
 
     void OnRefresh(HDC hDC, int Phase) override {
         if (Phase != EuroScopePlugIn::REFRESH_PHASE_AFTER_LISTS) return;

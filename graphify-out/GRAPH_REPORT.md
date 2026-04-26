@@ -1,12 +1,12 @@
-# Graph Report - /Users/nhath/Documents/Code/VCLvACDM/plugin  (2026-04-25)
+# Graph Report - D:\Code\vacdm-plugin-main  (2026-04-26)
 
 ## Corpus Check
-- 25 files · ~39,637 words
+- 25 files · ~40,549 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 114 nodes · 171 edges · 24 communities detected
-- Extraction: 74% EXTRACTED · 26% INFERRED · 0% AMBIGUOUS · INFERRED: 45 edges (avg confidence: 0.8)
+- 119 nodes · 179 edges · 24 communities detected
+- Extraction: 74% EXTRACTED · 26% INFERRED · 0% AMBIGUOUS · INFERRED: 47 edges (avg confidence: 0.8)
 - Token cost: 0 input · 0 output
 
 ## Community Hubs (Navigation)
@@ -37,45 +37,45 @@
 
 ## God Nodes (most connected - your core abstractions)
 1. `log()` - 14 edges
-2. `processAsynchronousMessages()` - 13 edges
-3. `sendPatchMessage()` - 12 edges
+2. `processAsynchronousMessages()` - 12 edges
+3. `sendPatchMessage()` - 11 edges
 4. `reloadConfiguration()` - 9 edges
 5. `changeServerUrl()` - 8 edges
-6. `run()` - 8 edges
-7. `checkServerConfiguration()` - 7 edges
-8. `parse()` - 7 edges
+6. `parse()` - 8 edges
+7. `run()` - 8 edges
+8. `checkServerConfiguration()` - 7 edges
 9. `vacdm()` - 5 edges
 10. `DisplayMessage()` - 5 edges
 
 ## Surprising Connections (you probably didn't know these)
 - `reloadConfiguration()` --calls--> `errorLine()`  [INFERRED]
-  /Users/nhath/Documents/Code/VCLvACDM/plugin/src/vACDM.cpp → /Users/nhath/Documents/Code/VCLvACDM/plugin/src/config/ConfigParser.cpp
+  D:\Code\vacdm-plugin-main\src\vACDM.cpp → D:\Code\vacdm-plugin-main\src\config\ConfigParser.cpp
+- `reloadConfiguration()` --calls--> `setUpdateCycleSeconds()`  [INFERRED]
+  D:\Code\vacdm-plugin-main\src\vACDM.cpp → D:\Code\vacdm-plugin-main\src\core\DataManager.cpp
+- `changeServerUrl()` --calls--> `pause()`  [INFERRED]
+  D:\Code\vacdm-plugin-main\src\vACDM.cpp → D:\Code\vacdm-plugin-main\src\core\DataManager.cpp
+- `changeServerUrl()` --calls--> `changeServerAddress()`  [INFERRED]
+  D:\Code\vacdm-plugin-main\src\vACDM.cpp → D:\Code\vacdm-plugin-main\src\core\Server.cpp
 - `vacdm()` --calls--> `log()`  [INFERRED]
-  /Users/nhath/Documents/Code/vacdm-plugin/src/vACDM.h → /Users/nhath/Documents/Code/vacdm-plugin/src/log/Logger.cpp
-- `checkServerConfiguration()` --calls--> `getServerConfig()`  [INFERRED]
-  /Users/nhath/Documents/Code/VCLvACDM/plugin/src/vACDM.cpp → /Users/nhath/Documents/Code/VCLvACDM/plugin/src/core/Server.cpp
-- `reloadConfiguration()` --calls--> `parse()`  [INFERRED]
-  /Users/nhath/Documents/Code/VCLvACDM/plugin/src/vACDM.cpp → /Users/nhath/Documents/Code/VCLvACDM/plugin/src/config/ConfigParser.cpp
-- `reloadConfiguration()` --calls--> `setApiKey()`  [INFERRED]
-  /Users/nhath/Documents/Code/VCLvACDM/plugin/src/vACDM.cpp → /Users/nhath/Documents/Code/VCLvACDM/plugin/src/core/Server.cpp
+  D:\Code\vacdm-plugin-main\src\vACDM.h → D:\Code\vacdm-plugin-main\src\log\Logger.cpp
 
 ## Communities
 
 ### Community 0 - "Community 0"
-Cohesion: 0.15
-Nodes (17): processAsynchronousMessages(), deletePilot(), postDelay(), postPilot(), promoteEvCtot(), resetTobt(), sendDeleteMessage(), sendPatchMessage() (+9 more)
+Cohesion: 0.13
+Nodes (19): processAsynchronousMessages(), changeServerAddress(), deletePilot(), postDelay(), postPilot(), resetTobt(), sendDeleteMessage(), sendPatchMessage() (+11 more)
 
 ### Community 1 - "Community 1"
-Cohesion: 0.17
-Nodes (16): pause(), queueFlightplanUpdate(), resume(), setUpdateCycleSeconds(), changeServerAddress(), checkWebApi(), setApiKey(), changeServerUrl() (+8 more)
+Cohesion: 0.19
+Nodes (15): checkPilotExists(), consolidateData(), consolidateFlightplanUpdates(), consolidateWithBackend(), deltaEuroscopeToBackend(), getPilot(), handleTagFunction(), pause() (+7 more)
 
 ### Community 2 - "Community 2"
-Cohesion: 0.21
-Nodes (14): CFlightPlanToPilot(), checkPilotExists(), consolidateData(), consolidateFlightplanUpdates(), consolidateWithBackend(), deltaEuroscopeToBackend(), handleTagFunction(), processEuroScopeUpdates() (+6 more)
+Cohesion: 0.19
+Nodes (14): CFlightPlanToPilot(), queueFlightplanUpdate(), resume(), sendHeartbeats(), changeServerUrl(), checkServerConfiguration(), DisplayMessage(), OnAirportRunwayActivityChanged() (+6 more)
 
 ### Community 3 - "Community 3"
-Cohesion: 0.29
-Nodes (5): errorLine(), parse(), parseColor(), getServerConfig(), isReadOnlyAirport()
+Cohesion: 0.22
+Nodes (7): errorLine(), parse(), parseColor(), checkWebApi(), claimMaster(), getServerConfig(), isReadOnlyAirport()
 
 ### Community 4 - "Community 4"
 Cohesion: 0.39
@@ -158,37 +158,37 @@ Cohesion: 1.0
 Nodes (0): 
 
 ## Knowledge Gaps
-- **Thin community `Community 6`** (2 nodes): `EuroScopePlugIn()`, `EuroScopePlugIn.h`
+- **Thin community `Community 6`** (2 nodes): `EuroScopePlugIn.h`, `EuroScopePlugIn()`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 7`** (2 nodes): `vacdm()`, `Pilot.h`
+- **Thin community `Community 7`** (2 nodes): `vacdm()`, `ConfigParser.h`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 8`** (2 nodes): `vacdm()`, `Ecfmp.h`
+- **Thin community `Community 8`** (2 nodes): `PluginConfig.h`, `vacdm()`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 9`** (2 nodes): `vacdm()`, `DataManager.h`
+- **Thin community `Community 9`** (2 nodes): `vacdm()`, `CompileCommands.h`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 10`** (2 nodes): `vacdm()`, `TagItems.h`
+- **Thin community `Community 10`** (2 nodes): `DataManager.h`, `vacdm()`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 11`** (2 nodes): `tagitems()`, `TagItemsColor.h`
+- **Thin community `Community 11`** (2 nodes): `Server.h`, `vacdm()`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 12`** (2 nodes): `vacdm()`, `CompileCommands.h`
+- **Thin community `Community 12`** (2 nodes): `StatusPanel.h`, `vacdm()`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 13`** (2 nodes): `vacdm()`, `TagFunctions.h`
+- **Thin community `Community 13`** (2 nodes): `TagFunctions.h`, `vacdm()`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 14`** (2 nodes): `vacdm()`, `Server.h`
+- **Thin community `Community 14`** (2 nodes): `TagItems.h`, `vacdm()`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 15`** (2 nodes): `vacdm()`, `PluginConfig.h`
+- **Thin community `Community 15`** (2 nodes): `TagItemsColor.h`, `tagitems()`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 16`** (2 nodes): `vacdm()`, `ConfigParser.h`
+- **Thin community `Community 16`** (2 nodes): `test_main.cpp`, `main()`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 17`** (2 nodes): `main()`, `test_main.cpp`
+- **Thin community `Community 17`** (2 nodes): `test_StringUtils.cpp`, `TEST()`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 18`** (2 nodes): `TEST()`, `test_StringUtils.cpp`
+- **Thin community `Community 18`** (2 nodes): `Pilot.h`, `vacdm()`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 19`** (2 nodes): `vacdm()`, `Date.h`
+- **Thin community `Community 19`** (2 nodes): `Date.h`, `vacdm()`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 20`** (2 nodes): `vacdm()`, `Number.h`
+- **Thin community `Community 20`** (2 nodes): `Number.h`, `vacdm()`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 21`** (2 nodes): `vacdm()`, `String.h`
+- **Thin community `Community 21`** (2 nodes): `String.h`, `vacdm()`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
 - **Thin community `Community 22`** (1 nodes): `main.h`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
@@ -198,16 +198,16 @@ Nodes (0):
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `log()` connect `Community 2` to `Community 0`, `Community 1`, `Community 3`, `Community 4`?**
-  _High betweenness centrality (0.144) - this node is a cross-community bridge._
-- **Why does `processAsynchronousMessages()` connect `Community 0` to `Community 2`?**
-  _High betweenness centrality (0.055) - this node is a cross-community bridge._
+- **Why does `log()` connect `Community 1` to `Community 0`, `Community 2`, `Community 3`, `Community 4`?**
+  _High betweenness centrality (0.138) - this node is a cross-community bridge._
+- **Why does `processAsynchronousMessages()` connect `Community 0` to `Community 1`?**
+  _High betweenness centrality (0.046) - this node is a cross-community bridge._
 - **Why does `parse()` connect `Community 3` to `Community 1`, `Community 2`?**
-  _High betweenness centrality (0.045) - this node is a cross-community bridge._
+  _High betweenness centrality (0.046) - this node is a cross-community bridge._
 - **Are the 13 inferred relationships involving `log()` (e.g. with `vacdm()` and `changeServerUrl()`) actually correct?**
   _`log()` has 13 INFERRED edges - model-reasoned connections that need verification._
-- **Are the 11 inferred relationships involving `processAsynchronousMessages()` (e.g. with `updateExot()` and `updateTobt()`) actually correct?**
-  _`processAsynchronousMessages()` has 11 INFERRED edges - model-reasoned connections that need verification._
+- **Are the 10 inferred relationships involving `processAsynchronousMessages()` (e.g. with `updateExot()` and `updateTobt()`) actually correct?**
+  _`processAsynchronousMessages()` has 10 INFERRED edges - model-reasoned connections that need verification._
 - **Are the 2 inferred relationships involving `sendPatchMessage()` (e.g. with `run()` and `log()`) actually correct?**
   _`sendPatchMessage()` has 2 INFERRED edges - model-reasoned connections that need verification._
 - **Are the 4 inferred relationships involving `reloadConfiguration()` (e.g. with `parse()` and `errorLine()`) actually correct?**

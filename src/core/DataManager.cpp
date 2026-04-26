@@ -75,22 +75,22 @@ void DataManager::run() {
 
         this->consolidateWithBackend(pilots);
 
-        if (true == Server::instance().getMaster()) {
-            std::list<std::tuple<types::Pilot, DataManager::MessageType, Json::Value>> transmissionBuffer;
-            for (auto& pilot : pilots) {
-                Json::Value message;
-                const auto sendType = DataManager::deltaEuroscopeToBackend(pilot.second, message);
-                if (MessageType::None != sendType)
-                    transmissionBuffer.push_back({pilot.second[ConsolidatedData], sendType, message});
-            }
+        std::list<std::tuple<types::Pilot, DataManager::MessageType, Json::Value>> transmissionBuffer;
+        for (auto& pilot : pilots) {
+            const auto& consolidatedPilot = pilot.second[ConsolidatedData];
+            if (!Server::instance().isMaster(consolidatedPilot.origin)) continue;
 
-            for (const auto& transmission : std::as_const(transmissionBuffer)) {
-                if (std::get<1>(transmission) == MessageType::Post)
-                    com::Server::instance().postPilot(std::get<0>(transmission));
-                else if (std::get<1>(transmission) == MessageType::Patch)
-                    com::Server::instance().sendPatchMessage("/api/v1/pilots/" + std::get<0>(transmission).callsign,
-                                                             std::get<2>(transmission));
-            }
+            Json::Value message;
+            const auto sendType = DataManager::deltaEuroscopeToBackend(pilot.second, message);
+            if (MessageType::None != sendType) transmissionBuffer.push_back({consolidatedPilot, sendType, message});
+        }
+
+        for (const auto& transmission : std::as_const(transmissionBuffer)) {
+            if (std::get<1>(transmission) == MessageType::Post)
+                com::Server::instance().postPilot(std::get<0>(transmission));
+            else if (std::get<1>(transmission) == MessageType::Patch)
+                com::Server::instance().sendPatchMessage("/api/v1/pilots/" + std::get<0>(transmission).callsign,
+                                                         std::get<2>(transmission));
         }
 
         {
@@ -192,8 +192,11 @@ void DataManager::processAsynchronousMessages(std::map<std::string, std::array<t
 
 void DataManager::handleTagFunction(MessageType type, const std::string callsign,
                                     const std::chrono::utc_clock::time_point value) {
-    // do not handle the tag function if the aircraft does not exist or the client is not master
-    if (false == this->checkPilotExists(callsign) || false == Server::instance().getMaster()) return;
+    // do not handle the tag function if the aircraft does not exist
+    if (false == this->checkPilotExists(callsign)) return;
+
+    const auto currentPilot = this->getPilot(callsign);
+    if (!Server::instance().isMaster(currentPilot.origin)) return;
 
     // queue the update message which will be sent to the backend
     {
@@ -443,7 +446,6 @@ void DataManager::consolidateData(std::array<types::Pilot, 3>& pilot) {
         pilot[ConsolidatedData].aort = pilot[ServerData].aort;
         pilot[ConsolidatedData].tsatReset = pilot[ServerData].tsatReset;
 
-        pilot[ConsolidatedData].measures = pilot[ServerData].measures;
         pilot[ConsolidatedData].hasBooking = pilot[ServerData].hasBooking;
         pilot[ConsolidatedData].taxizoneIsTaxiout = pilot[ServerData].taxizoneIsTaxiout;
 

@@ -214,7 +214,7 @@ void vACDM::OnGetTagItem(EuroScopePlugIn::CFlightPlan FlightPlan, EuroScopePlugI
             } else if (pilot.asat != types::defaultTime) {
                 outputText << "STR"; // Started
                 *pRGB = Color::pluginConfig.darkgreen;
-            } else if (pilot.ardt != types::defaultTime) {
+            } else if (pilot.asrt != types::defaultTime) {
                 outputText << "RDY";
                 *pRGB = Color::pluginConfig.darkgreen;
             } else if (pilot.tsat != types::defaultTime) {
