@@ -33,6 +33,7 @@ enum itemType {
     TSAC,
     TOBT_SET_BY,
     E_STATUS,
+    STATUS,
 };
 
 void vACDM::RegisterTagItemTypes() {
@@ -55,6 +56,7 @@ void vACDM::RegisterTagItemTypes() {
     RegisterTagItemType("TSAC", itemType::TSAC);
     RegisterTagItemType("TOBT-SET-BY", itemType::TOBT_SET_BY);
     RegisterTagItemType("E", itemType::E_STATUS);
+    RegisterTagItemType("STATUS", itemType::STATUS);
 }
 
 std::string formatTime(const std::chrono::utc_clock::time_point timepoint) {
@@ -209,6 +211,27 @@ void vACDM::OnGetTagItem(EuroScopePlugIn::CFlightPlan FlightPlan, EuroScopePlugI
         case itemType::E_STATUS:
             outputText << eStatus;
             *pRGB = Color::pluginConfig.darkgreen;
+            break;
+        case itemType::STATUS:
+            if (pilot.ctot != types::defaultTime) {
+                outputText << "CTO";
+                *pRGB = Color::pluginConfig.orange;
+            } else if (pilot.tsatReset) {
+                outputText << "RES";
+                *pRGB = Color::pluginConfig.red;
+            } else if (eStatus == "I") {
+                outputText << "PAS";
+                *pRGB = Color::pluginConfig.orange;
+            } else if (pilot.asat != types::defaultTime) {
+                outputText << "STR"; // Started
+                *pRGB = Color::pluginConfig.darkgreen;
+            } else if (pilot.ardt != types::defaultTime) {
+                outputText << "RDY";
+                *pRGB = Color::pluginConfig.darkgreen;
+            } else if (pilot.tsat != types::defaultTime) {
+                outputText << "SEQ";
+                *pRGB = Color::pluginConfig.darkgreen;
+            }
             break;
         default:
             break;

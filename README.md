@@ -18,8 +18,8 @@ Windows EuroScope DLL plugin for VCL vACC that syncs departures with the VCLvACD
 ## Dot Commands
 
 ### Core Management
-- `.vacdm master` — Enable write mode. Only the Master controller can push updates to the backend.
-- `.vacdm slave` — Enable read-only mode (default).
+- `.vacdm master <ICAO>` — Claim mastership for a specific airport. Only the Master can push updates.
+- `.vacdm slave <ICAO>` — Release mastership and return to read-only mode for that airport.
 - `.vacdm reload` — Reload settings from `vacdm.txt` without restarting EuroScope.
 - `.vacdm updaterate <seconds>` — Set the poll interval (e.g., `.vacdm updaterate 5`). Valid range: 1–30s.
 
@@ -41,10 +41,18 @@ Windows EuroScope DLL plugin for VCL vACC that syncs departures with the VCLvACD
 
 ## Vietnam-specific behavior
 
-- New startup list items: `CTOT`, `FLT TYPE`, `GND HDL`, `EXEMPT`
+- New startup list items: `CTOT`, `FLT TYPE`, `GND HDL`, `EXEMPT`, `STATUS`
+- **`STATUS` Tag Codes**:
+    - `CTO` (Orange): CTOT assigned (Network Slot).
+    - `RES` (Red): TSAT has been reset (TOBT update or manual reset).
+    - `PAS` (Yellow): Overdue for startup (>6 mins past TSAT).
+    - `RDY` (Green): Pilot reported ready.
+    - `STR` (Green): Startup approved (ASAT recorded).
+    - `SEQ` (Green): Assigned and in sequence.
 - `EXEMPT` flights show `LOCK`; TOBT/TSAT/TTOT/CTOT render as `----`
 - TSAT highlights CTOT violation when TTOT is outside CTOT +/- 5 minutes
 - Airports with `acdmStatus` of `PRE_CDM` or `INACTIVE` are read-only (display only, no POST/PATCH writes)
+- **Master/Slave Panel**: A status panel in the top-left of the radar screen shows management status per airport.
 
 ## Backend Contract Notes
 

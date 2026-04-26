@@ -8,6 +8,7 @@
 #include <mutex>
 #include <string>
 #include <chrono>
+#include <set>
 
 #include "types/Pilot.h"
 
@@ -30,6 +31,7 @@ class Server {
     };
 
     std::string m_apiKey;
+    std::string m_cid;
     Communication m_getRequest;
     Communication m_postRequest;
     Communication m_patchRequest;
@@ -39,7 +41,7 @@ class Server {
     bool m_apiIsValid;
     bool m_backendOnline;
     std::string m_baseUrl;
-    bool m_clientIsMaster;
+    std::set<std::string> m_masterAirports;
     std::string m_errorCode;
     ServerConfiguration m_serverConfiguration;
     mutable std::mutex m_stateLock;
@@ -56,6 +58,7 @@ class Server {
 
     void changeServerAddress(const std::string& url);
     void setApiKey(const std::string& apiKey);
+    void setCid(const std::string& cid);
     bool checkWebApi();
     bool backendOnline() const;
     ServerConfiguration_t getServerConfig();
@@ -91,7 +94,10 @@ class Server {
     void postDelay(const std::string& icao, const std::string& runway, const std::string& type, const std::string& time);
 
     const std::string& errorMessage() const;
-    void setMaster(bool master);
-    bool getMaster();
+    void claimMaster(const std::string& icao, const std::string& cid, const std::string& name);
+    void releaseMaster(const std::string& icao, const std::string& cid);
+    bool isMaster(const std::string& icao);
+    void sendHeartbeats(const std::string& cid);
+    std::set<std::string> getMasterAirports();
 };
 }  // namespace vacdm::com

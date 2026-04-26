@@ -7,6 +7,7 @@
 #pragma warning(pop)
 
 #include "config/ConfigParser.h"
+#include "core/StatusPanel.h"
 
 namespace vacdm {
 
@@ -27,6 +28,7 @@ class vACDM : public EuroScopePlugIn::CPlugIn {
     void OnGetTagItem(EuroScopePlugIn::CFlightPlan FlightPlan, EuroScopePlugIn::CRadarTarget RadarTarget, int ItemCode,
                       int TagData, char sItemString[16], int *pColorCode, COLORREF *pRGB, double *pFontSize) override;
     bool OnCompileCommand(const char *sCommandLine) override;
+    EuroScopePlugIn::CRadarScreen* OnRadarScreenCreated(const char *sDisplayName, bool BuiltIn, bool GndFilter, bool RealTime, bool ModeS) override;
 
    private:
     std::string m_dllPath;

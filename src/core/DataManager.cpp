@@ -374,6 +374,11 @@ void DataManager::setActiveAirports(const std::list<std::string> activeAirports)
     this->m_activeAirports = activeAirports;
 }
 
+std::list<std::string> DataManager::getActiveAirports() {
+    std::lock_guard guard(this->m_airportLock);
+    return this->m_activeAirports;
+}
+
 void DataManager::queueFlightplanUpdate(EuroScopePlugIn::CFlightPlan flightplan) {
     // skip the update if:
     // - the flightplan or its data is invalid
@@ -436,6 +441,7 @@ void DataManager::consolidateData(std::array<types::Pilot, 3>& pilot) {
         pilot[ConsolidatedData].atot = pilot[ServerData].atot;
         pilot[ConsolidatedData].asrt = pilot[ServerData].asrt;
         pilot[ConsolidatedData].aort = pilot[ServerData].aort;
+        pilot[ConsolidatedData].tsatReset = pilot[ServerData].tsatReset;
 
         pilot[ConsolidatedData].measures = pilot[ServerData].measures;
         pilot[ConsolidatedData].hasBooking = pilot[ServerData].hasBooking;

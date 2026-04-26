@@ -65,6 +65,7 @@ void vACDM::checkServerConfiguration() {
 }
 
 void vACDM::runEuroscopeUpdate() {
+    com::Server::instance().setCid(this->ControllerMyself().GetCallsign());
     for (EuroScopePlugIn::CFlightPlan flightplan = FlightPlanSelectFirst(); flightplan.IsValid();
          flightplan = FlightPlanSelectNext(flightplan)) {
         DataManager::instance().queueFlightplanUpdate(flightplan);
@@ -127,6 +128,9 @@ void vACDM::changeServerUrl(const std::string &url) {
 
 void vACDM::OnTimer(int Counter) {
     if (Counter % 5 == 0) this->runEuroscopeUpdate();
+    if (Counter % 60 == 0) {
+        com::Server::instance().sendHeartbeats(this->ControllerMyself().GetCallsign());
+    }
 }
 
 void vACDM::OnFlightPlanFlightPlanDataUpdate(EuroScopePlugIn::CFlightPlan FlightPlan) {
@@ -176,6 +180,10 @@ void vACDM::OnAirportRunwayActivityChanged() {
             Logger::LogLevel::Info);
     }
     DataManager::instance().setActiveAirports(activeAirports);
+}
+
+EuroScopePlugIn::CRadarScreen* vACDM::OnRadarScreenCreated(const char* sDisplayName, bool BuiltIn, bool GndFilter, bool RealTime, bool ModeS) {
+    return new core::StatusPanel();
 }
 
 }  // namespace vacdm

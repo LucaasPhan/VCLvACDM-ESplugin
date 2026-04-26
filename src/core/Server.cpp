@@ -58,7 +58,7 @@ Server::Server()
       m_apiIsValid(false),
       m_backendOnline(false),
       m_baseUrl("https://app.vacdm.net"),
-      m_clientIsMaster(false),
+      m_masterAirports(),
       m_errorCode() {
     /* configure the get request */
     curl_easy_setopt(m_getRequest.socket, CURLOPT_SSL_VERIFYPEER, 0L);
@@ -95,10 +95,18 @@ Server::Server()
 
 void Server::setApiKey(const std::string& apiKey) {
     this->m_apiKey = apiKey;
+    this->setCid(this->m_cid);
+}
+
+void Server::setCid(const std::string& cid) {
+    this->m_cid = cid;
 
     struct curl_slist* headers = nullptr;
     headers = curl_slist_append(headers, "Accept: application/json");
     headers = curl_slist_append(headers, ("x-api-key: " + this->m_apiKey).c_str());
+    if (!this->m_cid.empty()) {
+        headers = curl_slist_append(headers, ("x-vatsim-cid: " + this->m_cid).c_str());
+    }
     headers = curl_slist_append(headers, "Content-Type: application/json");
 
     curl_easy_setopt(m_getRequest.socket, CURLOPT_HTTPHEADER, headers);
@@ -303,6 +311,7 @@ std::list<types::Pilot> Server::getPilots(const std::list<std::string> airports)
                     // Phase 1+ fields
                     pilots.back().tsac = pilot.get("tsac", Json::Value("")).asString();
                     pilots.back().tobtSetBy = pilot.get("tobtSetBy", Json::Value("")).asString();
+                    pilots.back().tsatReset = pilot.get("tsatReset", Json::Value(false)).asBool();
 
                     // ECFMP measures
                     Json::Value measuresArray = pilot["measures"];
@@ -333,7 +342,7 @@ std::list<types::Pilot> Server::getPilots(const std::list<std::string> airports)
 }
 
 void Server::sendPostMessage(const std::string& endpointUrl, const Json::Value& root) {
-    if (this->m_apiIsChecked == false || this->m_apiIsValid == false || this->m_clientIsMaster == false) return;
+    if (this->m_apiIsChecked == false || this->m_apiIsValid == false || this->m_masterAirports.empty()) return;
 
     Json::StreamWriterBuilder builder{};
     const auto message = Json::writeString(builder, root);
@@ -358,7 +367,7 @@ void Server::sendPostMessage(const std::string& endpointUrl, const Json::Value& 
 }
 
 void Server::sendPatchMessage(const std::string& endpointUrl, const Json::Value& root) {
-    if (this->m_apiIsChecked == false || this->m_apiIsValid == false || this->m_clientIsMaster == false) return;
+    if (this->m_apiIsChecked == false || this->m_apiIsValid == false || this->m_masterAirports.empty()) return;
 
     Json::StreamWriterBuilder builder{};
     const auto message = Json::writeString(builder, root);
@@ -383,7 +392,7 @@ void Server::sendPatchMessage(const std::string& endpointUrl, const Json::Value&
 }
 
 void Server::sendDeleteMessage(const std::string& endpointUrl) {
-    if (this->m_apiIsChecked == false || this->m_apiIsValid == false || this->m_clientIsMaster == false) return;
+    if (this->m_apiIsChecked == false || this->m_apiIsValid == false || this->m_masterAirports.empty()) return;
 
     Json::StreamWriterBuilder builder{};
 
@@ -568,9 +577,98 @@ void Server::resetTobt(const std::string& callsign, const std::chrono::utc_clock
 
 void Server::deletePilot(const std::string& callsign) { sendDeleteMessage("/api/v1/pilots/" + callsign); }
 
-void Server::setMaster(bool master) { this->m_clientIsMaster = master; }
+void Server::claimMaster(const std::string& icao, const std::string& cid, const std::string& name) {
+    Json::Value root;
+    root["cid"] = cid;
+    root["name"] = name;
+    
+    std::lock_guard guard(this->m_postRequest.lock);
+    if (m_postRequest.socket != nullptr) {
+        std::string url = m_baseUrl + "/api/v1/airports/" + icao + "/master";
+        curl_easy_setopt(m_postRequest.socket, CURLOPT_URL, url.c_str());
+        
+        Json::StreamWriterBuilder builder{};
+        std::string message = Json::writeString(builder, root);
+        curl_easy_setopt(m_postRequest.socket, CURLOPT_POSTFIELDS, message.c_str());
+        
+        __receivedPostData.clear();
+        CURLcode result = curl_easy_perform(m_postRequest.socket);
+        
+        if (result == CURLE_OK) {
+            Json::CharReaderBuilder builder{};
+            auto reader = std::unique_ptr<Json::CharReader>(builder.newCharReader());
+            std::string errors;
+            Json::Value resp;
+            if (reader->parse(__receivedPostData.c_str(), __receivedPostData.c_str() + __receivedPostData.length(), &resp, &errors)) {
+                if (resp.isMember("statusCode") && resp["statusCode"].asInt() == 409) {
+                    m_errorCode = "Master claim rejected: " + resp["message"].asString();
+                    return;
+                }
+                std::lock_guard lock(m_stateLock);
+                m_masterAirports.insert(icao);
+            }
+        }
+        __receivedPostData.clear();
+    }
+}
 
-bool Server::getMaster() { return this->m_clientIsMaster; }
+void Server::releaseMaster(const std::string& icao, const std::string& cid) {
+    Json::Value root;
+    root["cid"] = cid;
+    
+    std::lock_guard guard(this->m_deleteRequest.lock);
+    if (m_deleteRequest.socket != nullptr) {
+        std::string url = m_baseUrl + "/api/v1/airports/" + icao + "/master";
+        curl_easy_setopt(m_deleteRequest.socket, CURLOPT_URL, url.c_str());
+        
+        // curl DELETE with body
+        Json::StreamWriterBuilder builder{};
+        std::string message = Json::writeString(builder, root);
+        curl_easy_setopt(m_deleteRequest.socket, CURLOPT_POSTFIELDS, message.c_str());
+        
+        __receivedDeleteData.clear();
+        curl_easy_perform(m_deleteRequest.socket);
+        __receivedDeleteData.clear();
+        
+        std::lock_guard lock(m_stateLock);
+        m_masterAirports.erase(icao);
+    }
+}
+
+bool Server::isMaster(const std::string& icao) {
+    std::lock_guard lock(m_stateLock);
+    return m_masterAirports.find(icao) != m_masterAirports.end();
+}
+
+void Server::sendHeartbeats(const std::string& cid) {
+    std::lock_guard lock(m_stateLock);
+    if (m_masterAirports.empty()) return;
+    
+    for (const auto& icao : m_masterAirports) {
+        Json::Value root;
+        root["cid"] = cid;
+        
+        // We use patch request socket for PUT heartbeat
+        std::lock_guard guard(this->m_patchRequest.lock);
+        if (m_patchRequest.socket != nullptr) {
+            std::string url = m_baseUrl + "/api/v1/airports/" + icao + "/master/heartbeat";
+            curl_easy_setopt(m_patchRequest.socket, CURLOPT_URL, url.c_str());
+            curl_easy_setopt(m_patchRequest.socket, CURLOPT_CUSTOMREQUEST, "PUT");
+            
+            Json::StreamWriterBuilder builder{};
+            std::string message = Json::writeString(builder, root);
+            curl_easy_setopt(m_patchRequest.socket, CURLOPT_POSTFIELDS, message.c_str());
+            
+            curl_easy_perform(m_patchRequest.socket);
+            curl_easy_setopt(m_patchRequest.socket, CURLOPT_CUSTOMREQUEST, "PATCH"); // restore
+        }
+    }
+}
+
+std::set<std::string> Server::getMasterAirports() {
+    std::lock_guard lock(m_stateLock);
+    return m_masterAirports;
+}
 
 const std::string& Server::errorMessage() const { return this->m_errorCode; }
 

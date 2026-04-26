@@ -31,6 +31,13 @@ bool vACDM::OnCompileCommand(const char *sCommandLine) {
 
     // master command
     if (std::string::npos != command.find("MASTER")) {
+        const auto elements = vacdm::utils::String::splitString(command, " ");
+        if (elements.size() < 3) {
+            DisplayMessage("Usage: .vacdm MASTER <ICAO>");
+            return true;
+        }
+        std::string icao = elements[2];
+
         bool userIsConnected = this->GetConnectionType() != EuroScopePlugIn::CONNECTION_TYPE_NO;
         bool userIsInSweatbox = this->GetConnectionType() == EuroScopePlugIn::CONNECTION_TYPE_SWEATBOX;
         bool userIsObserver = std::string_view(this->ControllerMyself().GetCallsign()).ends_with("_OBS") == true ||
@@ -48,10 +55,9 @@ bool vACDM::OnCompileCommand(const char *sCommandLine) {
             userIsNotEligibleMessage =
                 "You are logged in on a Sweatbox Server and Server does not allow Sweatbox connections";
         } else {
-            DisplayMessage("Executing vACDM as the MASTER");
-            Logger::instance().log(Logger::LogSender::vACDM, "Switched to MASTER", Logger::LogLevel::Info);
-            com::Server::instance().setMaster(true);
-
+            DisplayMessage("Claiming vACDM MASTER for " + icao);
+            Logger::instance().log(Logger::LogSender::vACDM, "Claiming MASTER for " + icao, Logger::LogLevel::Info);
+            com::Server::instance().claimMaster(icao, this->ControllerMyself().GetCallsign(), this->ControllerMyself().GetCallsign());
             return true;
         }
 
@@ -59,9 +65,15 @@ bool vACDM::OnCompileCommand(const char *sCommandLine) {
         DisplayMessage(userIsNotEligibleMessage);
         return true;
     } else if (std::string::npos != command.find("SLAVE")) {
-        DisplayMessage("Executing vACDM as the SLAVE");
-        Logger::instance().log(Logger::LogSender::vACDM, "Switched to SLAVE", Logger::LogLevel::Info);
-        com::Server::instance().setMaster(false);
+        const auto elements = vacdm::utils::String::splitString(command, " ");
+        if (elements.size() < 3) {
+            DisplayMessage("Usage: .vacdm SLAVE <ICAO>");
+            return true;
+        }
+        std::string icao = elements[2];
+        DisplayMessage("Releasing vACDM MASTER for " + icao);
+        Logger::instance().log(Logger::LogSender::vACDM, "Releasing MASTER for " + icao, Logger::LogLevel::Info);
+        com::Server::instance().releaseMaster(icao, this->ControllerMyself().GetCallsign());
         return true;
     } else if (std::string::npos != command.find("RELOAD")) {
         this->reloadConfiguration();

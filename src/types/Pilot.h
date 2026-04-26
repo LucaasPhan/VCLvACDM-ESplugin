@@ -51,6 +51,7 @@ typedef struct Pilot_t {
     std::chrono::utc_clock::time_point aort = defaultTime;
     std::string tsac;
     std::string tobtSetBy;
+    bool tsatReset = false;
 
     // ECFMP Measures
 
