@@ -21,6 +21,13 @@ class Server {
         bool allowMasterAsObserver = false;
     } ServerConfiguration;
 
+    typedef struct AirportMetadata_t {
+        std::string icao = "";
+        std::string status = "FULL";
+        std::string master = "";
+        bool readOnly = false;
+    } AirportMetadata;
+
    private:
     Server();
     struct Communication {
@@ -42,6 +49,7 @@ class Server {
     bool m_backendOnline;
     std::string m_baseUrl;
     std::set<std::string> m_masterAirports;
+    std::map<std::string, AirportMetadata> m_airportMetadata;
     std::string m_errorCode;
     ServerConfiguration m_serverConfiguration;
     mutable std::mutex m_stateLock;
@@ -65,6 +73,9 @@ class Server {
     std::list<types::Pilot> getPilots(const std::list<std::string> airports);
     void postPilot(types::Pilot);
     void patchPilot(const Json::Value& root);
+    
+    void refreshAirportMetadata(const std::string& icao);
+    AirportMetadata getAirportMetadata(const std::string& icao);
     bool isReadOnlyAirport(const std::string& icao);
 
     /// @brief Sends a post message to the specififed endpoint url with the root as content

@@ -62,6 +62,14 @@ void DataManager::run() {
         // run every updateCycleSeconds seconds
         if (counter++ % updateCycleSeconds != 0) continue;
 
+        // refresh airport metadata for all active airports
+        {
+            std::lock_guard guard(this->m_airportLock);
+            for (const auto& icao : m_activeAirports) {
+                com::Server::instance().refreshAirportMetadata(icao);
+            }
+        }
+
         // obtain a copy of the pilot data, work with the copy to minimize lock time
         std::map<std::string, std::array<vacdm::types::Pilot, 3U>> pilots;
         {

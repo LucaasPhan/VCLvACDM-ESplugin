@@ -414,28 +414,46 @@ void Server::postPilot(types::Pilot pilot) {
     this->sendPostMessage("/api/v1/pilots", root);
 }
 
-bool Server::isReadOnlyAirport(const std::string& icao) {
-    if (icao.empty()) return false;
+void Server::refreshAirportMetadata(const std::string& icao) {
+    if (icao.empty()) return;
     std::lock_guard guard(m_getRequest.lock);
-    if (m_getRequest.socket == nullptr) return false;
+    if (m_getRequest.socket == nullptr) return;
 
     __receivedGetData.clear();
     std::string url = m_baseUrl + "/api/v1/airports/" + icao;
     curl_easy_setopt(m_getRequest.socket, CURLOPT_URL, url.c_str());
     CURLcode result = curl_easy_perform(m_getRequest.socket);
-    if (result != CURLE_OK) return false;
+    if (result != CURLE_OK) return;
 
     Json::CharReaderBuilder builder{};
     auto reader = std::unique_ptr<Json::CharReader>(builder.newCharReader());
     std::string errors;
     Json::Value root;
-    if (!reader->parse(__receivedGetData.c_str(), __receivedGetData.c_str() + __receivedGetData.length(), &root,
+    if (reader->parse(__receivedGetData.c_str(), __receivedGetData.c_str() + __receivedGetData.length(), &root,
                        &errors)) {
-        return false;
-    }
+        AirportMetadata meta;
+        meta.icao = icao;
+        meta.status = root.get("acdmStatus", Json::Value("FULL")).asString();
+        meta.readOnly = (meta.status == "PRE_CDM" || meta.status == "INACTIVE");
+        meta.master = root.get("master", Json::Value("")).asString();
 
-    const std::string status = root.get("acdmStatus", Json::Value("FULL")).asString();
-    return status == "PRE_CDM" || status == "INACTIVE";
+        std::lock_guard lock(m_stateLock);
+        m_airportMetadata[icao] = meta;
+    }
+}
+
+Server::AirportMetadata Server::getAirportMetadata(const std::string& icao) {
+    std::lock_guard lock(m_stateLock);
+    if (m_airportMetadata.find(icao) != m_airportMetadata.end()) {
+        return m_airportMetadata[icao];
+    }
+    AirportMetadata meta;
+    meta.icao = icao;
+    return meta;
+}
+
+bool Server::isReadOnlyAirport(const std::string& icao) {
+    return this->getAirportMetadata(icao).readOnly;
 }
 
 void Server::updateExot(const std::string& callsign, const std::chrono::utc_clock::time_point& exot) {

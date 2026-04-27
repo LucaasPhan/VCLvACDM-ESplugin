@@ -178,6 +178,15 @@ bool vACDM::OnCompileCommand(const char *sCommandLine) {
             DisplayMessage("Delay set for " + icao + " " + rwy + " from " + absoluteTime + "z");
         }
         return true;
+    } else if (std::string::npos != command.find("FLOW")) {
+        const auto elements = vacdm::utils::String::splitString(command, " ");
+        if (elements.size() < 3) {
+            DisplayMessage("Usage: .vacdm FLOW <ICAO>");
+            return true;
+        }
+        com::Server::instance().sendPostMessage("/api/v1/airports/" + elements[2] + "/flow/reload", Json::Value());
+        DisplayMessage("ETFMS flow refresh requested for " + elements[2]);
+        return true;
     }
     return false;
 }
