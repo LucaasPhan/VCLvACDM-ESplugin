@@ -17,36 +17,32 @@ public:
         m_dragOffset.y = 0;
     }
     virtual ~StatusPanel() {}
-    void OnAsrContentToBeClosed(void) override {}
+    void OnAsrContentToBeClosed(void) override { delete this; }
 
-    void OnMouseDown(POINT pt, int nButton) override {
+    void OnButtonDownScreenObject(int ObjectType, const char* sObjectId, POINT pt, RECT Area, int nButton) override {
         if (nButton != 1) return; // Left click only
 
         auto activeAirports = DataManager::instance().getActiveAirports();
         if (activeAirports.empty()) return;
 
-        RECT r;
-        r.left = m_panelX;
-        r.top = m_panelY;
-        r.right = m_panelX + 120;
-        r.bottom = m_panelY + (static_cast<int>(activeAirports.size()) * 15) + 20;
-
-        if (PtInRect(&r, pt)) {
-            m_isDragging = true;
-            m_dragOffset.x = pt.x - m_panelX;
-            m_dragOffset.y = pt.y - m_panelY;
-        }
+        m_isDragging = true;
+        m_dragOffset.x = pt.x - m_panelX;
+        m_dragOffset.y = pt.y - m_panelY;
     }
 
-    void OnMouseMove(POINT pt, int nButton) override {
+    void OnMoveScreenObject(int ObjectType, const char* sObjectId, POINT pt, RECT Area, bool Released) override {
         if (m_isDragging) {
-            m_panelX = pt.x - m_dragOffset.x;
-            m_panelY = pt.y - m_dragOffset.y;
-            this->RequestRefresh();
+            if (Released) {
+                m_isDragging = false;
+            } else {
+                m_panelX = pt.x - m_dragOffset.x;
+                m_panelY = pt.y - m_dragOffset.y;
+                this->RequestRefresh();
+            }
         }
     }
 
-    void OnMouseUp(POINT pt, int nButton) override {
+    void OnButtonUpScreenObject(int ObjectType, const char* sObjectId, POINT pt, RECT Area, int nButton) override {
         if (nButton == 1) {
             m_isDragging = false;
         }
@@ -67,6 +63,9 @@ public:
         r.top = y;
         r.right = x + 120;
         r.bottom = y + (static_cast<int>(activeAirports.size()) * 15) + 20;
+
+        // Register screen object for interaction
+        this->AddScreenObject(1000, "StatusPanel", r, true, "");
 
         // Draw background
         HBRUSH bgBrush = CreateSolidBrush(RGB(30, 30, 30));
