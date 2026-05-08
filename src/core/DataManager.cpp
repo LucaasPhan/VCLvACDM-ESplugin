@@ -569,10 +569,34 @@ types::Pilot DataManager::CFlightPlanToPilot(const EuroScopePlugIn::CFlightPlan 
     }
 
     // flightplan & clearance data
-    pilot.origin = flightplan.GetFlightPlanData().GetOrigin();
-    pilot.destination = flightplan.GetFlightPlanData().GetDestination();
-    pilot.runway = flightplan.GetFlightPlanData().GetDepartureRwy();
-    pilot.sid = flightplan.GetFlightPlanData().GetSidName();
+    const char* origin = flightplan.GetFlightPlanData().GetOrigin();
+    pilot.origin = (origin != nullptr) ? origin : "";
+    
+    const char* destination = flightplan.GetFlightPlanData().GetDestination();
+    pilot.destination = (destination != nullptr) ? destination : "";
+    
+    const char* runway = flightplan.GetFlightPlanData().GetDepartureRwy();
+    pilot.runway = (runway != nullptr) ? runway : "";
+
+    const char* sidName = flightplan.GetFlightPlanData().GetSidName();
+    pilot.sid = (sidName != nullptr) ? sidName : "";
+
+    // fallback for TopSky/GRP: check scratchpad if SID is empty
+    if (pilot.sid.empty()) {
+        const char* scratchpad = flightplan.GetControllerAssignedData().GetScratchPadString();
+        if (scratchpad != nullptr && std::strlen(scratchpad) > 0) {
+            // common format: SID is the first word or the whole string
+            std::string sp(scratchpad);
+            size_t space = sp.find(' ');
+            pilot.sid = (space != std::string::npos) ? sp.substr(0, space) : sp;
+        }
+    }
+
+    if (!pilot.sid.empty()) {
+        logging::Logger::instance().log(logging::Logger::LogSender::DataManager,
+                                        "Extracted SID for " + pilot.callsign + ": " + pilot.sid,
+                                        logging::Logger::LogLevel::Info);
+    }
 
     // acdm data
     pilot.eobt = utils::Date::convertEuroscopeDepartureTime(flightplan);

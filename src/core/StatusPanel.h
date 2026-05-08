@@ -49,7 +49,7 @@ public:
     }
 
     void OnRefresh(HDC hDC, int Phase) override {
-        if (Phase != EuroScopePlugIn::REFRESH_PHASE_AFTER_LISTS) return;
+        if (Phase != EuroScopePlugIn::REFRESH_PHASE_AFTER_TAGS) return;
 
         auto activeAirports = DataManager::instance().getActiveAirports();
         if (activeAirports.empty()) return;
