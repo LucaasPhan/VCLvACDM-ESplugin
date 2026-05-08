@@ -59,6 +59,7 @@ Server::Server()
       m_backendOnline(false),
       m_baseUrl("https://app.vacdm.net"),
       m_masterAirports(),
+      m_supportedAirports(),
       m_errorCode() {
     /* configure the get request */
     curl_easy_setopt(m_getRequest.socket, CURLOPT_SSL_VERIFYPEER, 0L);
@@ -231,15 +232,20 @@ Server::ServerConfiguration Server::getServerConfig() {
 }
 
 std::list<types::Pilot> Server::getPilots(const std::list<std::string> airports) {
+    std::list<std::string> supportedAirports;
+    for (const auto& icao : airports) {
+        if (this->isSupportedAirport(icao)) supportedAirports.push_back(icao);
+    }
+
     std::lock_guard guard(m_getRequest.lock);
     if (nullptr != m_getRequest.socket) {
         __receivedGetData.clear();
 
         std::string url = m_baseUrl + "/api/v1/pilots";
-        if (airports.size() != 0) {
+        if (supportedAirports.size() != 0) {
             url +=
                 "?airport=" +
-                std::accumulate(std::next(airports.begin()), airports.end(), airports.front(),
+                std::accumulate(std::next(supportedAirports.begin()), supportedAirports.end(), supportedAirports.front(),
                                 [](const std::string& acc, const std::string& str) { return acc + "&airport=" + str; });
         }
         Logger::instance().log(Logger::LogSender::Server, url, Logger::LogLevel::Info);
@@ -415,7 +421,7 @@ void Server::postPilot(types::Pilot pilot) {
 }
 
 void Server::refreshAirportMetadata(const std::string& icao) {
-    if (icao.empty()) return;
+    if (icao.empty() || !this->isSupportedAirport(icao)) return;
     std::lock_guard guard(m_getRequest.lock);
     if (m_getRequest.socket == nullptr) return;
 
@@ -442,6 +448,41 @@ void Server::refreshAirportMetadata(const std::string& icao) {
     }
 }
 
+void Server::refreshSupportedAirports() {
+    std::lock_guard guard(m_getRequest.lock);
+    if (m_getRequest.socket == nullptr) return;
+
+    __receivedGetData.clear();
+    std::string url = m_baseUrl + "/api/v1/airports";
+    curl_easy_setopt(m_getRequest.socket, CURLOPT_URL, url.c_str());
+    CURLcode result = curl_easy_perform(m_getRequest.socket);
+    if (result != CURLE_OK) return;
+
+    Json::CharReaderBuilder builder{};
+    auto reader = std::unique_ptr<Json::CharReader>(builder.newCharReader());
+    std::string errors;
+    Json::Value root;
+    if (reader->parse(__receivedGetData.c_str(), __receivedGetData.c_str() + __receivedGetData.length(), &root,
+                       &errors)) {
+        if (root.isArray()) {
+            std::set<std::string> supported;
+            for (const auto& airport : root) {
+                if (airport.isObject() && airport.isMember("icao")) {
+                    supported.insert(airport["icao"].asString());
+                } else if (airport.isString()) {
+                    supported.insert(airport.asString());
+                }
+            }
+            std::lock_guard lock(m_stateLock);
+            m_supportedAirports = supported;
+            Logger::instance().log(Logger::LogSender::Server,
+                                   "Refreshed supported airports: " + std::to_string(m_supportedAirports.size()) +
+                                       " airports configured on backend",
+                                   Logger::LogLevel::Info);
+        }
+    }
+}
+
 Server::AirportMetadata Server::getAirportMetadata(const std::string& icao) {
     std::lock_guard lock(m_stateLock);
     if (m_airportMetadata.find(icao) != m_airportMetadata.end()) {
@@ -454,6 +495,11 @@ Server::AirportMetadata Server::getAirportMetadata(const std::string& icao) {
 
 bool Server::isReadOnlyAirport(const std::string& icao) {
     return this->getAirportMetadata(icao).readOnly;
+}
+
+bool Server::isSupportedAirport(const std::string& icao) {
+    std::lock_guard lock(m_stateLock);
+    return m_supportedAirports.find(icao) != m_supportedAirports.end();
 }
 
 void Server::updateExot(const std::string& callsign, const std::chrono::utc_clock::time_point& exot) {

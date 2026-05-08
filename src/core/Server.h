@@ -49,6 +49,7 @@ class Server {
     bool m_backendOnline;
     std::string m_baseUrl;
     std::set<std::string> m_masterAirports;
+    std::set<std::string> m_supportedAirports;
     std::map<std::string, AirportMetadata> m_airportMetadata;
     std::string m_errorCode;
     ServerConfiguration m_serverConfiguration;
@@ -75,8 +76,10 @@ class Server {
     void patchPilot(const Json::Value& root);
     
     void refreshAirportMetadata(const std::string& icao);
+    void refreshSupportedAirports();
     AirportMetadata getAirportMetadata(const std::string& icao);
     bool isReadOnlyAirport(const std::string& icao);
+    bool isSupportedAirport(const std::string& icao);
 
     /// @brief Sends a post message to the specififed endpoint url with the root as content
     /// @param endpointUrl endpoint url to send the request to

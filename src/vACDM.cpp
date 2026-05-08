@@ -59,6 +59,8 @@ void vACDM::checkServerConfiguration() {
     } else {
         std::string serverName = "VCLvACDM system";
         DisplayMessage(("Connected to " + serverName), "Server");
+        // fetch supported airports list from backend
+        Server::instance().refreshSupportedAirports();
         // set active airports and runways
         this->OnAirportRunwayActivityChanged();
     }
@@ -159,12 +161,19 @@ void vACDM::OnAirportRunwayActivityChanged() {
 
         // get the airport ICAO
         auto airportICAO = utils::String::findIcao(utils::String::trim(airport.GetName()));
-        // skip airport if no ICAO has been found
-        if (airportICAO == "") continue;
+        if (airportICAO == "" || !com::Server::instance().isSupportedAirport(airportICAO)) {
+            if (airportICAO != "") {
+                Logger::instance().log(Logger::LogSender::vACDM, "Skipping unsupported airport: " + airportICAO,
+                                       Logger::LogLevel::Info);
+            }
+            continue;
+        }
 
-        // check if the airport has been added already, add if it does not exist
+        // skip airport if already in the list
         if (std::find(activeAirports.begin(), activeAirports.end(), airportICAO) == activeAirports.end()) {
             activeAirports.push_back(airportICAO);
+            Logger::instance().log(Logger::LogSender::vACDM, "Adding active airport: " + airportICAO,
+                                   Logger::LogLevel::Info);
         }
     }
 
