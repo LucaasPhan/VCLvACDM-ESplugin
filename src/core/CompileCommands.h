@@ -58,6 +58,13 @@ bool vACDM::OnCompileCommand(const char *sCommandLine) {
             DisplayMessage("Claiming vACDM MASTER for " + icao);
             Logger::instance().log(Logger::LogSender::vACDM, "Claiming MASTER for " + icao, Logger::LogLevel::Info);
             com::Server::instance().claimMaster(icao, this->ControllerMyself().GetCallsign(), this->ControllerMyself().GetCallsign());
+            
+            std::string err = com::Server::instance().errorMessage();
+            if (!err.empty()) {
+                DisplayMessage(err);
+            } else if (com::Server::instance().isMaster(icao)) {
+                DisplayMessage("vACDM MASTER claim successful for " + icao);
+            }
             return true;
         }
 
@@ -74,6 +81,13 @@ bool vACDM::OnCompileCommand(const char *sCommandLine) {
         DisplayMessage("Releasing vACDM MASTER for " + icao);
         Logger::instance().log(Logger::LogSender::vACDM, "Releasing MASTER for " + icao, Logger::LogLevel::Info);
         com::Server::instance().releaseMaster(icao, this->ControllerMyself().GetCallsign());
+        
+        std::string err = com::Server::instance().errorMessage();
+        if (!err.empty()) {
+            DisplayMessage(err);
+        } else {
+            DisplayMessage("vACDM MASTER released for " + icao);
+        }
         return true;
     } else if (std::string::npos != command.find("RELOAD")) {
         this->reloadConfiguration();

@@ -18,33 +18,25 @@ static std::string __receivedPostData;
 
 static std::size_t receiveCurlDelete(void* ptr, std::size_t size, std::size_t nmemb, void* stream) {
     (void)stream;
-
-    std::string serverResult = static_cast<char*>(ptr);
-    __receivedDeleteData += serverResult;
+    __receivedDeleteData.append(static_cast<char*>(ptr), size * nmemb);
     return size * nmemb;
 }
 
 static std::size_t receiveCurlGet(void* ptr, std::size_t size, std::size_t nmemb, void* stream) {
     (void)stream;
-
-    std::string serverResult = static_cast<char*>(ptr);
-    __receivedGetData += serverResult;
+    __receivedGetData.append(static_cast<char*>(ptr), size * nmemb);
     return size * nmemb;
 }
 
 static std::size_t receiveCurlPatch(void* ptr, std::size_t size, std::size_t nmemb, void* stream) {
     (void)stream;
-
-    std::string serverResult = static_cast<char*>(ptr);
-    __receivedPatchData += serverResult;
+    __receivedPatchData.append(static_cast<char*>(ptr), size * nmemb);
     return size * nmemb;
 }
 
 static std::size_t receiveCurlPost(void* ptr, std::size_t size, std::size_t nmemb, void* stream) {
     (void)stream;
-
-    std::string serverResult = static_cast<char*>(ptr);
-    __receivedPostData += serverResult;
+    __receivedPostData.append(static_cast<char*>(ptr), size * nmemb);
     return size * nmemb;
 }
 
@@ -57,7 +49,7 @@ Server::Server()
       m_apiIsChecked(false),
       m_apiIsValid(false),
       m_backendOnline(false),
-      m_baseUrl("https://app.vacdm.net"),
+      m_baseUrl("https://api.vclvacc.net"),
       m_masterAirports(),
       m_supportedAirports(),
       m_errorCode() {
@@ -646,19 +638,30 @@ void Server::claimMaster(const std::string& icao, const std::string& cid, const 
         __receivedPostData.clear();
         CURLcode result = curl_easy_perform(m_postRequest.socket);
         
+        long responseCode = 0;
+        curl_easy_getinfo(m_postRequest.socket, CURLINFO_RESPONSE_CODE, &responseCode);
+
         if (result == CURLE_OK) {
-            Json::CharReaderBuilder builder{};
-            auto reader = std::unique_ptr<Json::CharReader>(builder.newCharReader());
-            std::string errors;
-            Json::Value resp;
-            if (reader->parse(__receivedPostData.c_str(), __receivedPostData.c_str() + __receivedPostData.length(), &resp, &errors)) {
-                if (resp.isMember("statusCode") && resp["statusCode"].asInt() == 409) {
-                    m_errorCode = "Master claim rejected: " + resp["message"].asString();
-                    return;
+            if (responseCode == 409) {
+                m_errorCode = "Master claim rejected: " + icao + " is already managed by another controller.";
+                // Try to extract the name if present in JSON
+                Json::CharReaderBuilder builder{};
+                auto reader = std::unique_ptr<Json::CharReader>(builder.newCharReader());
+                std::string errors;
+                Json::Value resp;
+                if (reader->parse(__receivedPostData.c_str(), __receivedPostData.c_str() + __receivedPostData.length(), &resp, &errors)) {
+                    if (resp.isMember("message")) m_errorCode = "Master claim rejected: " + resp["message"].asString();
                 }
+                return;
+            } else if (responseCode >= 200 && responseCode < 300) {
                 std::lock_guard lock(m_stateLock);
                 m_masterAirports.insert(icao);
+                m_errorCode = "";
+            } else {
+                m_errorCode = "Master claim failed for " + icao + " (HTTP " + std::to_string(responseCode) + ")";
             }
+        } else {
+            m_errorCode = "Master claim network error for " + icao;
         }
         __receivedPostData.clear();
     }
@@ -679,11 +682,19 @@ void Server::releaseMaster(const std::string& icao, const std::string& cid) {
         curl_easy_setopt(m_deleteRequest.socket, CURLOPT_POSTFIELDS, message.c_str());
         
         __receivedDeleteData.clear();
-        curl_easy_perform(m_deleteRequest.socket);
-        __receivedDeleteData.clear();
+        CURLcode result = curl_easy_perform(m_deleteRequest.socket);
         
-        std::lock_guard lock(m_stateLock);
-        m_masterAirports.erase(icao);
+        long responseCode = 0;
+        curl_easy_getinfo(m_deleteRequest.socket, CURLINFO_RESPONSE_CODE, &responseCode);
+
+        if (result == CURLE_OK && responseCode >= 200 && responseCode < 300) {
+            std::lock_guard lock(m_stateLock);
+            m_masterAirports.erase(icao);
+            m_errorCode = "";
+        } else {
+            m_errorCode = "Master release failed for " + icao;
+        }
+        __receivedDeleteData.clear();
     }
 }
 
