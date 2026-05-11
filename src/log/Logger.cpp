@@ -92,7 +92,7 @@ void Logger::log(const LogSender &sender, const std::string &message, const LogL
 std::string Logger::handleLogCommand(std::string command) {
     auto elements = vacdm::utils::String::splitString(command, " ");
 
-    std::string usageString = "Usage: .vacdm LOG ON/OFF/DEBUG";
+    std::string usageString = "Usage: .acdm LOG ON/OFF/DEBUG";
     if (elements.size() != 3) return usageString;
 
     if ("ON" == elements[2]) {
@@ -118,7 +118,7 @@ std::string Logger::handleLogCommand(std::string command) {
 std::string Logger::handleLogLevelCommand(std::string command) {
     const auto elements = vacdm::utils::String::splitString(command, " ");
     if (elements.size() != 4) {
-        return "Usage: .vacdm LOGLEVEL sender loglevel";
+        return "Usage: .acdm LOGLEVEL sender loglevel";
     }
 
     std::string sender = elements[2];

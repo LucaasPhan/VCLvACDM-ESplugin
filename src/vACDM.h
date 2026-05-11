@@ -16,7 +16,7 @@ class vACDM : public EuroScopePlugIn::CPlugIn {
     vACDM();
     ~vACDM();
 
-    void DisplayMessage(const std::string &message, const std::string &sender = "vACDM");
+    void DisplayMessage(const std::string &message, const std::string &sender = "VCLvACDM");
     void SetGroundState(const EuroScopePlugIn::CFlightPlan flightplan, const std::string groundstate);
 
     // Euroscope events
@@ -35,6 +35,7 @@ class vACDM : public EuroScopePlugIn::CPlugIn {
     std::string m_configFileName = "\\vacdm.txt";
     PluginConfig m_pluginConfig;
     bool m_wasConnected = false;
+    bool m_debugMode = false;
     void changeServerUrl(const std::string &url);
 
     void runEuroscopeUpdate();

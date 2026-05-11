@@ -45,14 +45,14 @@ class Logger {
     Logger();
 #ifdef DEBUG_BUILD
     std::vector<LogSetting> logSettings = {
-        {vACDM, "vACDM", Debug},   {DataManager, "DataManager", Info},
+        {vACDM, "VCLvACDM", Debug},   {DataManager, "DataManager", Info},
         {Server, "Server", Debug}, {ConfigParser, "ConfigParser", Debug},
         {Utils, "Utils", Debug},
     };
 #else
     /// @brief set the log level for each sender separately
     std::vector<LogSetting> logSettings = {
-        {vACDM, "vACDM", Disabled},   {DataManager, "DataManager", Disabled},
+        {vACDM, "VCLvACDM", Disabled},   {DataManager, "DataManager", Disabled},
         {Server, "Server", Disabled}, {ConfigParser, "ConfigParser", Disabled},
         {Utils, "Utils", Disabled},
     };

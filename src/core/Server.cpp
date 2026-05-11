@@ -334,8 +334,10 @@ void Server::sendPostMessage(const std::string& endpointUrl, const Json::Value& 
     Json::StreamWriterBuilder builder{};
     const auto message = Json::writeString(builder, root);
 
+    std::string logId = root.get("callsign", "System").asString();
+
     Logger::instance().log(Logger::LogSender::Server,
-                           "Posting " + root["callsign"].asString() + " with message: " + message,
+                           "Posting " + logId + " with message: " + message,
                            Logger::LogLevel::Debug);
 
     std::lock_guard guard(this->m_postRequest.lock);
@@ -359,8 +361,10 @@ void Server::sendPatchMessage(const std::string& endpointUrl, const Json::Value&
     Json::StreamWriterBuilder builder{};
     const auto message = Json::writeString(builder, root);
 
+    std::string logId = root.get("callsign", "System").asString();
+
     Logger::instance().log(Logger::LogSender::Server,
-                           "Patching " + root["callsign"].asString() + " with message: " + message,
+                           "Patching " + logId + " with message: " + message,
                            Logger::LogLevel::Debug);
 
     std::lock_guard guard(this->m_patchRequest.lock);
@@ -435,6 +439,19 @@ void Server::refreshAirportMetadata(const std::string& icao) {
         meta.status = root.get("acdmStatus", Json::Value("FULL")).asString();
         meta.readOnly = (meta.status == "PRE_CDM" || meta.status == "INACTIVE");
         meta.master = root.get("master", Json::Value("")).asString();
+        meta.lvo = root.get("lvo", Json::Value(false)).asBool();
+        meta.supportsLvo = root.get("supportsLvo", Json::Value(false)).asBool();
+
+        if (root.isMember("delays") && root["delays"].isArray()) {
+            for (const auto& delay : root["delays"]) {
+                std::string rwy = delay.get("runway", "").asString();
+                std::string type = delay.get("type", "").asString();
+                std::string time = delay.get("fromTime", "").asString();
+                if (!rwy.empty()) {
+                    meta.activeDelays.push_back(rwy + " " + type + " " + time + "z");
+                }
+            }
+        }
 
         std::lock_guard lock(m_stateLock);
         m_airportMetadata[icao] = meta;
@@ -596,7 +613,7 @@ void Server::deletePilot(const std::string& callsign) { sendDeleteMessage("/api/
 
 void Server::claimMaster(const std::string& icao, const std::string& cid, const std::string& name) {
     if (!this->isSupportedAirport(icao)) {
-        m_errorCode = "Master claim rejected: " + icao + " is not supported by this vACDM deployment.";
+        m_errorCode = "Master claim rejected: " + icao + " is not supported by this VCLvACDM deployment.";
         return;
     }
 

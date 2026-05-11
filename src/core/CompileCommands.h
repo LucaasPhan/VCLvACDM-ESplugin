@@ -10,6 +10,7 @@
 #include "log/Logger.h"
 #include "utils/Number.h"
 #include "utils/String.h"
+#include "utils/Date.h"
 #include "vACDM.h"
 
 using namespace vacdm;
@@ -26,17 +27,22 @@ bool vACDM::OnCompileCommand(const char *sCommandLine) {
     std::transform(command.begin(), command.end(), command.begin(), ::toupper);
 #pragma warning(pop)
 
-    // only handle commands containing ".vacdm"
-    if (0 != command.find(".VACDM")) return false;
+    // only handle commands containing ".acdm"
+    if (0 != command.find(".ACDM")) return false;
 
     // master command
     if (std::string::npos != command.find("MASTER")) {
         const auto elements = vacdm::utils::String::splitString(command, " ");
         if (elements.size() < 3) {
-            DisplayMessage("Usage: .vacdm MASTER <ICAO>");
+            DisplayMessage("Usage: .acdm MASTER <ICAO>");
             return true;
         }
         std::string icao = elements[2];
+
+        if (icao != "VVTS" && icao != "VVNB") {
+            DisplayMessage("VCLvACDM is currently only supported at VVTS and VVNB");
+            return true;
+        }
 
         bool userIsConnected = this->GetConnectionType() != EuroScopePlugIn::CONNECTION_TYPE_NO;
         bool userIsInSweatbox = this->GetConnectionType() == EuroScopePlugIn::CONNECTION_TYPE_SWEATBOX;
@@ -47,7 +53,7 @@ bool vACDM::OnCompileCommand(const char *sCommandLine) {
 
         std::string userIsNotEligibleMessage;
 
-        if (!userIsConnected) {
+        if (!userIsConnected && !this->m_debugMode) {
             userIsNotEligibleMessage = "You are not logged in to the VATSIM network";
         } else if (userIsObserver && !serverAllowsObsAsMaster) {
             userIsNotEligibleMessage = "You are logged in as Observer and Server does not allow Observers to be Master";
@@ -55,7 +61,7 @@ bool vACDM::OnCompileCommand(const char *sCommandLine) {
             userIsNotEligibleMessage =
                 "You are logged in on a Sweatbox Server and Server does not allow Sweatbox connections";
         } else if (!com::Server::instance().isSupportedAirport(icao)) {
-            userIsNotEligibleMessage = icao + " is not supported by this vACDM deployment";
+            userIsNotEligibleMessage = icao + " is not supported by this VCLvACDM deployment";
         } else {
             com::Server::instance().refreshAirportMetadata(icao);
             const auto meta = com::Server::instance().getAirportMetadata(icao);
@@ -67,7 +73,7 @@ bool vACDM::OnCompileCommand(const char *sCommandLine) {
                 return true;
             }
 
-            DisplayMessage("Claiming vACDM MASTER for " + icao);
+            DisplayMessage("Claiming ACDM MASTER for " + icao);
             Logger::instance().log(Logger::LogSender::vACDM, "Claiming MASTER for " + icao, Logger::LogLevel::Info);
             com::Server::instance().claimMaster(icao, callsign, callsign);
             
@@ -75,7 +81,7 @@ bool vACDM::OnCompileCommand(const char *sCommandLine) {
             if (!err.empty()) {
                 DisplayMessage(err);
             } else if (com::Server::instance().isMaster(icao)) {
-                DisplayMessage("vACDM MASTER claim successful for " + icao);
+                DisplayMessage("ACDM MASTER claim successful for " + icao);
                 this->OnAirportRunwayActivityChanged();
                 this->runEuroscopeUpdate();
             }
@@ -87,12 +93,23 @@ bool vACDM::OnCompileCommand(const char *sCommandLine) {
         return true;
     } else if (std::string::npos != command.find("SLAVE")) {
         const auto elements = vacdm::utils::String::splitString(command, " ");
-        if (elements.size() < 3) {
-            DisplayMessage("Usage: .vacdm SLAVE <ICAO>");
+        
+        if (elements.size() < 3 || elements[2] == "ALL") {
+            DisplayMessage("Releasing all ACDM MASTER claims");
+            Logger::instance().log(Logger::LogSender::vACDM, "Releasing all MASTER claims", Logger::LogLevel::Info);
+            com::Server::instance().releaseAllMasters(this->ControllerMyself().GetCallsign());
+            DisplayMessage("All ACDM MASTER claims released");
             return true;
         }
+
         std::string icao = elements[2];
-        DisplayMessage("Releasing vACDM MASTER for " + icao);
+
+        if (icao != "VVTS" && icao != "VVNB") {
+            DisplayMessage("ACDM is currently only supported at VVTS and VVNB");
+            return true;
+        }
+
+        DisplayMessage("Releasing ACDM MASTER for " + icao);
         Logger::instance().log(Logger::LogSender::vACDM, "Releasing MASTER for " + icao, Logger::LogLevel::Info);
         com::Server::instance().releaseMaster(icao, this->ControllerMyself().GetCallsign());
         
@@ -100,11 +117,25 @@ bool vACDM::OnCompileCommand(const char *sCommandLine) {
         if (!err.empty()) {
             DisplayMessage(err);
         } else {
-            DisplayMessage("vACDM MASTER released for " + icao);
+            DisplayMessage("ACDM MASTER released for " + icao);
         }
         return true;
     } else if (std::string::npos != command.find("RELOAD")) {
         this->reloadConfiguration();
+        return true;
+    } else if (std::string::npos != command.find("DEBUG")) {
+        const auto elements = vacdm::utils::String::splitString(command, " ");
+        if (elements.size() < 3) {
+            DisplayMessage("Usage: .acdm DEBUG ON/OFF");
+            return true;
+        }
+        if (elements[2] == "ON") {
+            this->m_debugMode = true;
+            DisplayMessage("Debug mode ON: Polling active while disconnected.");
+        } else {
+            this->m_debugMode = false;
+            DisplayMessage("Debug mode OFF: Polling disabled while disconnected.");
+        }
         return true;
     } else if (std::string::npos != command.find("LOG")) {
         if (std::string::npos != command.find("LOGLEVEL")) {
@@ -116,12 +147,12 @@ bool vACDM::OnCompileCommand(const char *sCommandLine) {
     } else if (std::string::npos != command.find("UPDATERATE")) {
         const auto elements = vacdm::utils::String::splitString(command, " ");
         if (elements.size() != 3) {
-            DisplayMessage("Usage: .vacdm UPDATERATE value");
+            DisplayMessage("Usage: .acdm UPDATERATE value");
             return true;
         }
         if (false == isNumber(elements[2]) ||
             std::stoi(elements[2]) < minUpdateCycleSeconds || std::stoi(elements[2]) > maxUpdateCycleSeconds) {
-            DisplayMessage("Usage: .vacdm UPDATERATE value");
+            DisplayMessage("Usage: .acdm UPDATERATE value");
             DisplayMessage("Value must be number between " + std::to_string(minUpdateCycleSeconds) + " and " +
                            std::to_string(maxUpdateCycleSeconds));
             return true;
@@ -133,7 +164,7 @@ bool vACDM::OnCompileCommand(const char *sCommandLine) {
     } else if (std::string::npos != command.find("UNEXEMPT")) {
         const auto elements = vacdm::utils::String::splitString(command, " ");
         if (elements.size() < 3) {
-            DisplayMessage("Usage: .vacdm UNEXEMPT <CALLSIGN>");
+            DisplayMessage("Usage: .acdm UNEXEMPT <CALLSIGN>");
             return true;
         }
         Json::Value root;
@@ -145,7 +176,7 @@ bool vACDM::OnCompileCommand(const char *sCommandLine) {
     } else if (std::string::npos != command.find("EXEMPT")) {
         const auto elements = vacdm::utils::String::splitString(command, " ");
         if (elements.size() < 3) {
-            DisplayMessage("Usage: .vacdm EXEMPT <CALLSIGN>");
+            DisplayMessage("Usage: .acdm EXEMPT <CALLSIGN>");
             return true;
         }
         Json::Value root;
@@ -155,22 +186,38 @@ bool vACDM::OnCompileCommand(const char *sCommandLine) {
         DisplayMessage(elements[2] + " marked as CDM-exempt (VIP/medical/SAR)");
         return true;
     } else if (std::string::npos != command.find("LVO")) {
-        // Find master airport. We assume activeAirports has the airport.
-        // Wait, plugin has no direct API to get single master airport easily in CompileCommands.
-        // But we can extract it if they pass it, or we just rely on the first active airport.
-        // Let's require the ICAO for LVO to be safe, e.g. .vacdm lvo VVTS, or just extract from SectorFile
         const auto elements = vacdm::utils::String::splitString(command, " ");
-        if (elements.size() < 3) {
-            DisplayMessage("Usage: .vacdm LVO <ICAO>");
+        if (elements.size() < 4) {
+            DisplayMessage("Usage: .acdm LVO <ICAO> ON/OFF");
             return true;
         }
-        com::Server::instance().toggleLvo(elements[2], true);
-        DisplayMessage("LVO activated for " + elements[2]);
+        std::string icao = elements[2];
+        std::string state = elements[3];
+
+        auto meta = com::Server::instance().getAirportMetadata(icao);
+        if (!meta.supportsLvo) {
+            DisplayMessage("LVO is not configured/supported for " + icao);
+            return true;
+        }
+
+        if (this->GetConnectionType() == EuroScopePlugIn::CONNECTION_TYPE_NO && !this->m_debugMode) {
+            DisplayMessage("You must be connected to the network to use this command.");
+            return true;
+        }
+
+        if (!com::Server::instance().isMaster(icao)) {
+            DisplayMessage("You must be MASTER of " + icao + " to toggle LVO.");
+            return true;
+        }
+
+        bool active = (state == "ON");
+        com::Server::instance().toggleLvo(icao, active);
+        DisplayMessage("LVO " + std::string(active ? "activated" : "deactivated") + " for " + icao);
         return true;
     } else if (std::string::npos != command.find("STARTUPDELAY") || std::string::npos != command.find("DEPARTUREDELAY")) {
         const auto elements = vacdm::utils::String::splitString(command, " ");
         if (elements.size() < 4) {
-            DisplayMessage("Usage: .vacdm STARTUPDELAY <ICAO>/<RWY> <TIME>");
+            DisplayMessage("Usage: .acdm STARTUPDELAY <ICAO>/<RWY> <TIME>");
             return true;
         }
         
@@ -185,7 +232,17 @@ bool vACDM::OnCompileCommand(const char *sCommandLine) {
         }
         std::string icao = icao_rwy.substr(0, slashPos);
         std::string rwy = icao_rwy.substr(slashPos + 1);
-        
+
+        if (this->GetConnectionType() == EuroScopePlugIn::CONNECTION_TYPE_NO && !this->m_debugMode) {
+            DisplayMessage("You must be connected to the network to use this command.");
+            return true;
+        }
+
+        if (!com::Server::instance().isMaster(icao)) {
+            DisplayMessage("You must be MASTER of " + icao + " to set delays.");
+            return true;
+        }
+
         // Handle time (absolute or relative)
         if (time == "9999") {
             std::string url = "/api/v1/airports/" + icao + "/delays?runway=" + rwy + "&type=" + type;
@@ -202,14 +259,18 @@ bool vACDM::OnCompileCommand(const char *sCommandLine) {
                               (int)std::chrono::duration_cast<std::chrono::minutes>(future.time_since_epoch() % std::chrono::hours(1)).count());
                 absoluteTime = buf;
             }
-            com::Server::instance().postDelay(icao, rwy, type, absoluteTime);
+            
+            auto timePoint = utils::Date::convertStringToTimePoint(absoluteTime);
+            std::string isoTime = utils::Date::timestampToIsoString(timePoint);
+
+            com::Server::instance().postDelay(icao, rwy, type, isoTime);
             DisplayMessage("Delay set for " + icao + " " + rwy + " from " + absoluteTime + "z");
         }
         return true;
     } else if (std::string::npos != command.find("FLOW")) {
         const auto elements = vacdm::utils::String::splitString(command, " ");
         if (elements.size() < 3) {
-            DisplayMessage("Usage: .vacdm FLOW <ICAO>");
+            DisplayMessage("Usage: .acdm FLOW <ICAO>");
             return true;
         }
         com::Server::instance().sendPostMessage("/api/v1/airports/" + elements[2] + "/flow/reload", Json::Value());

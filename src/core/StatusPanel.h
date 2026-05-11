@@ -24,11 +24,12 @@ public:
     void OnAsrContentToBeClosed(void) override { delete this; }
 
     void OnButtonDownScreenObject(int ObjectType, const char* sObjectId, POINT pt, RECT Area, int nButton) override {
-        if (nButton != 1) return; // Left click only
-
-        m_isDragging = true;
-        m_dragOffset.x = pt.x - m_panelX;
-        m_dragOffset.y = pt.y - m_panelY;
+        if (nButton != 1) return;
+        if (strcmp(sObjectId, "StatusPanel") == 0) {
+            m_isDragging = true;
+            m_dragOffset.x = pt.x - m_panelX;
+            m_dragOffset.y = pt.y - m_panelY;
+        }
     }
 
     void OnMoveScreenObject(int ObjectType, const char* sObjectId, POINT pt, RECT Area, bool Released) override {
@@ -44,9 +45,8 @@ public:
     }
 
     void OnButtonUpScreenObject(int ObjectType, const char* sObjectId, POINT pt, RECT Area, int nButton) override {
-        if (nButton == 1) {
+        if (nButton == 1)
             m_isDragging = false;
-        }
     }
 
     void OnRefresh(HDC hDC, int Phase) override {
@@ -57,73 +57,138 @@ public:
         std::list<std::string> displayAirports = activeAirports;
 
         for (const auto& icao : masters) {
-            if (std::find(displayAirports.begin(), displayAirports.end(), icao) == displayAirports.end()) {
+            if (std::find(displayAirports.begin(), displayAirports.end(), icao) == displayAirports.end())
                 displayAirports.push_back(icao);
-            }
         }
 
-        // Draw status panel at its current position
+        // --- Layout constants (matches StandsPanel) ---
+        const int PANEL_W  = 180;
+        const int TITLE_H  = 16;
+        const int HEADER_H = 16;
+        const int ROW_H    = 15;
+        const int COL_ICAO = 6;
+        const int COL_ROLE = 60;
+
+        // --- Calculate height based on content ---
+        int contentH = 0;
+        if (displayAirports.empty()) {
+            contentH = ROW_H;
+        } else {
+            for (const auto& icao : displayAirports) {
+                contentH += ROW_H;
+                auto meta = com::Server::instance().getAirportMetadata(icao);
+                contentH += static_cast<int>(meta.activeDelays.size()) * ROW_H;
+            }
+        }
+        int PANEL_H  = TITLE_H + HEADER_H + contentH + 4;
+
         int x = m_panelX;
         int y = m_panelY;
 
-        RECT r;
-        r.left = x;
-        r.top = y;
-        r.right = x + 160;
-        r.bottom = y + (std::max(1, static_cast<int>(displayAirports.size())) * 15) + 20;
-
-        // Register screen object for interaction
-        this->AddScreenObject(1000, "StatusPanel", r, true, "");
-
-        // Draw background
-        HBRUSH bgBrush = CreateSolidBrush(RGB(30, 30, 30));
-        FillRect(hDC, &r, bgBrush);
+        // --- Background ---
+        RECT panelRect = { x, y, x + PANEL_W, y + PANEL_H };
+        HBRUSH bgBrush = CreateSolidBrush(RGB(50, 50, 50));
+        FillRect(hDC, &panelRect, bgBrush);
         DeleteObject(bgBrush);
+
+        // Border
         HBRUSH borderBrush = CreateSolidBrush(RGB(110, 110, 110));
-        FrameRect(hDC, &r, borderBrush);
+        FrameRect(hDC, &panelRect, borderBrush);
         DeleteObject(borderBrush);
 
         SetBkMode(hDC, TRANSPARENT);
 
-        // Draw Title
-        SetTextColor(hDC, RGB(200, 200, 200));
-        TextOutA(hDC, x + 5, y + 2, "vACDM STATUS", 12);
-        y += 18;
+        // Register title bar for dragging
+        RECT titleRect = { x, y, x + PANEL_W, y + TITLE_H };
+        this->AddScreenObject(1000, "StatusPanel", titleRect, true, "");
 
+        // --- Title ---
+        SetTextColor(hDC, RGB(220, 220, 220));
+        TextOutA(hDC, x + COL_ICAO, y + 2, "ACDM STATUS", 12);
+
+        // Divider under title
+        HPEN divPen = CreatePen(PS_SOLID, 1, RGB(110, 110, 110));
+        HPEN oldPen = (HPEN)SelectObject(hDC, divPen);
+        MoveToEx(hDC, x, y + TITLE_H, NULL);
+        LineTo(hDC, x + PANEL_W, y + TITLE_H);
+        y += TITLE_H;
+
+        // --- Column headers ---
+        SetTextColor(hDC, RGB(180, 180, 180));
+        TextOutA(hDC, x + COL_ICAO, y + 2, "ICAO", 4);
+        TextOutA(hDC, x + COL_ROLE, y + 2, "POS", 4);
+
+        // Divider under headers
+        MoveToEx(hDC, x, y + HEADER_H, NULL);
+        LineTo(hDC, x + PANEL_W, y + HEADER_H);
+        y += HEADER_H;
+
+        SelectObject(hDC, oldPen);
+        DeleteObject(divPen);
+
+        // --- Rows ---
         if (displayAirports.empty()) {
-            SetTextColor(hDC, RGB(180, 180, 180));
+            SetTextColor(hDC, RGB(160, 160, 160));
             const char* text = "NO ACTIVE AIRPORT";
-            TextOutA(hDC, x + 5, y, text, static_cast<int>(strlen(text)));
+            TextOutA(hDC, x + COL_ICAO, y + 2, text, static_cast<int>(strlen(text)));
             return;
         }
 
+        int i = 0;
         for (const auto& icao : displayAirports) {
-            std::string text = icao + ": ";
             auto meta = com::Server::instance().getAirportMetadata(icao);
-            
+
+            // Alternating row shading for the header part
+            RECT rowRect = { x + 1, y, x + PANEL_W - 1, y + ROW_H };
+            HBRUSH rowBrush = CreateSolidBrush((i % 2 == 0) ? RGB(50, 50, 50) : RGB(60, 60, 60));
+            FillRect(hDC, &rowRect, rowBrush);
+            DeleteObject(rowBrush);
+
+            // ICAO label
+            SetTextColor(hDC, RGB(200, 200, 200));
+            std::string icaoText = icao;
+            if (meta.lvo) icaoText += " (LVO)";
+            TextOutA(hDC, x + COL_ICAO, y + 2, icaoText.c_str(), static_cast<int>(icaoText.length()));
+
+            // Role label
+            std::string role;
+            COLORREF roleColor;
             if (masters.find(icao) != masters.end()) {
-                text += "MASTER";
-                SetTextColor(hDC, RGB(0, 255, 0)); // Green
-            } else if (meta.readOnly) {
-                text += "READONLY";
-                SetTextColor(hDC, RGB(128, 128, 128)); // Grey
+                role      = "MASTER";
+                roleColor = RGB(255, 200, 60);   // amber
             } else {
-                text += "SLAVE"; 
-                if (!meta.master.empty()) {
-                    text += " (" + meta.master + ")";
-                }
-                SetTextColor(hDC, RGB(255, 100, 100)); // Red-ish for unmanaged/slave
+                role = "SLAVE";
+                if (!meta.master.empty())
+                    role += " (" + meta.master + ")";
+                roleColor = RGB(80, 160, 255);   // blue
             }
 
-            TextOutA(hDC, x + 5, y, text.c_str(), static_cast<int>(text.length()));
-            y += 15;
+            SetTextColor(hDC, roleColor);
+            TextOutA(hDC, x + COL_ROLE, y + 2, role.c_str(), static_cast<int>(role.length()));
+
+            y += ROW_H;
+
+            // Draw active delays if any
+            for (const auto& delay : meta.activeDelays) {
+                RECT delayRect = { x + 1, y, x + PANEL_W - 1, y + ROW_H };
+                HBRUSH delayBrush = CreateSolidBrush((i % 2 == 0) ? RGB(45, 45, 45) : RGB(55, 55, 55));
+                FillRect(hDC, &delayRect, delayBrush);
+                DeleteObject(delayBrush);
+
+                SetTextColor(hDC, RGB(255, 100, 100)); // Red for delays
+                std::string delayText = "- " + delay;
+                TextOutA(hDC, x + COL_ICAO + 4, y + 2, delayText.c_str(), static_cast<int>(delayText.length()));
+                y += ROW_H;
+            }
+
+            ++i;
         }
     }
 
 private:
-    int m_panelX;
-    int m_panelY;
-    bool m_isDragging;
+    int   m_panelX;
+    int   m_panelY;
+    bool  m_isDragging;
     POINT m_dragOffset;
 };
 

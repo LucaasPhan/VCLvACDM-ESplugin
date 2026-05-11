@@ -131,12 +131,16 @@ void vACDM::changeServerUrl(const std::string &url) {
 // Euroscope Events:
 
 void vACDM::OnTimer(int Counter) {
+    if (this->GetConnectionType() == EuroScopePlugIn::CONNECTION_TYPE_NO && !this->m_debugMode) return;
     const bool isConnected = this->GetConnectionType() != EuroScopePlugIn::CONNECTION_TYPE_NO;
     if (this->m_wasConnected && !isConnected) {
         if (!Server::instance().getMasterAirports().empty()) {
             Server::instance().releaseAllMasters(this->ControllerMyself().GetCallsign());
             DisplayMessage("Released local MASTER claims after disconnect.", "Master");
         }
+    } else if (!this->m_wasConnected && isConnected) {
+        // re-initialize active airports on reconnect
+        this->OnAirportRunwayActivityChanged();
     }
     this->m_wasConnected = isConnected;
 
@@ -172,11 +176,11 @@ void vACDM::OnAirportRunwayActivityChanged() {
 
         // get the airport ICAO
         auto airportICAO = utils::String::findIcao(utils::String::trim(airport.GetName()));
-        if (airportICAO == "" || !com::Server::instance().isSupportedAirport(airportICAO)) {
-            if (airportICAO != "") {
-                Logger::instance().log(Logger::LogSender::vACDM, "Skipping unsupported airport: " + airportICAO,
-                                       Logger::LogLevel::Info);
-            }
+        if (airportICAO != "VVTS" && airportICAO != "VVNB") continue;
+
+        if (!com::Server::instance().isSupportedAirport(airportICAO)) {
+            Logger::instance().log(Logger::LogSender::vACDM, "Skipping unsupported airport: " + airportICAO,
+                                   Logger::LogLevel::Info);
             continue;
         }
 

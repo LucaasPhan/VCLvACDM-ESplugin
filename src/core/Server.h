@@ -26,6 +26,9 @@ class Server {
         std::string status = "FULL";
         std::string master = "";
         bool readOnly = false;
+        bool lvo = false;
+        bool supportsLvo = false;
+        std::vector<std::string> activeDelays;
     } AirportMetadata;
 
    private:

@@ -48,7 +48,7 @@ std::string DataManager::setUpdateCycleSeconds(const int newUpdateCycleSeconds) 
 
     this->updateCycleSeconds = newUpdateCycleSeconds;
 
-    return "vACDM updating every " +
+    return "VCLvACDM updating every " +
            (newUpdateCycleSeconds == 1 ? "second" : std::to_string(newUpdateCycleSeconds) + " seconds");
 }
 
