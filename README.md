@@ -21,11 +21,12 @@ All commands use the `.acdm` prefix.
 - `.acdm slave <ICAO>` — Release mastership for a specific airport.
 - `.acdm reload` — Reload settings from `vacdm.txt` without restarting EuroScope.
 - `.acdm updaterate <seconds>` — Set the poll interval (e.g., `.acdm updaterate 5`). Valid range: 1–30s.
+- `.acdm debug on|off` — Toggle Debug Mode (allows polling and commands while disconnected).
 
 ### Flight & Sequence Control
 - `.acdm exempt <callsign>` — Mark a flight as CDM-exempt (VIP, SAR, Medical). Renders as `----` in sequence.
 - `.acdm unexempt <callsign>` — Remove exempt status and return flight to the sequence.
-- `.acdm lvo <ICAO>` — Activate Low Visibility Operations (LVO) rate for an airport.
+- `.acdm lvo <ICAO> on|off` — Toggle Low Visibility Operations (LVO) for an airport (VVTS/VVNB only).
 
 ### Delay Restrictions
 - `.acdm startupdelay <ICAO>/<RWY> <TIME>` — Shift TSATs for a specific runway.
