@@ -34,6 +34,7 @@ class vACDM : public EuroScopePlugIn::CPlugIn {
     std::string m_dllPath;
     std::string m_configFileName = "\\vacdm.txt";
     PluginConfig m_pluginConfig;
+    bool m_wasConnected = false;
     void changeServerUrl(const std::string &url);
 
     void runEuroscopeUpdate();

@@ -595,6 +595,13 @@ void Server::resetTobt(const std::string& callsign, const std::chrono::utc_clock
 void Server::deletePilot(const std::string& callsign) { sendDeleteMessage("/api/v1/pilots/" + callsign); }
 
 void Server::claimMaster(const std::string& icao, const std::string& cid, const std::string& name) {
+    if (!this->isSupportedAirport(icao)) {
+        m_errorCode = "Master claim rejected: " + icao + " is not supported by this vACDM deployment.";
+        return;
+    }
+
+    this->setCid(cid);
+
     Json::Value root;
     root["cid"] = cid;
     root["name"] = name;
@@ -625,6 +632,7 @@ void Server::claimMaster(const std::string& icao, const std::string& cid, const 
                 if (reader->parse(__receivedPostData.c_str(), __receivedPostData.c_str() + __receivedPostData.length(), &resp, &errors)) {
                     if (resp.isMember("message")) m_errorCode = "Master claim rejected: " + resp["message"].asString();
                 }
+                __receivedPostData.clear();
                 return;
             } else if (responseCode >= 200 && responseCode < 300) {
                 std::lock_guard lock(m_stateLock);
@@ -671,16 +679,40 @@ void Server::releaseMaster(const std::string& icao, const std::string& cid) {
     }
 }
 
+void Server::releaseAllMasters(const std::string& cid) {
+    std::set<std::string> masters;
+    std::string releaseCid = cid;
+
+    {
+        std::lock_guard lock(m_stateLock);
+        masters = m_masterAirports;
+        if (releaseCid.empty()) releaseCid = m_cid;
+    }
+
+    if (releaseCid.empty()) return;
+
+    for (const auto& icao : masters) {
+        this->releaseMaster(icao, releaseCid);
+    }
+}
+
 bool Server::isMaster(const std::string& icao) {
     std::lock_guard lock(m_stateLock);
     return m_masterAirports.find(icao) != m_masterAirports.end();
 }
 
 void Server::sendHeartbeats(const std::string& cid) {
-    std::lock_guard lock(m_stateLock);
-    if (m_masterAirports.empty()) return;
+    std::set<std::string> masters;
+    {
+        std::lock_guard lock(m_stateLock);
+        masters = m_masterAirports;
+    }
+
+    if (masters.empty()) return;
     
-    for (const auto& icao : m_masterAirports) {
+    this->setCid(cid);
+
+    for (const auto& icao : masters) {
         Json::Value root;
         root["cid"] = cid;
         
@@ -695,8 +727,20 @@ void Server::sendHeartbeats(const std::string& cid) {
             std::string message = Json::writeString(builder, root);
             curl_easy_setopt(m_patchRequest.socket, CURLOPT_POSTFIELDS, message.c_str());
             
-            curl_easy_perform(m_patchRequest.socket);
+            __receivedPatchData.clear();
+            CURLcode result = curl_easy_perform(m_patchRequest.socket);
+
+            long responseCode = 0;
+            curl_easy_getinfo(m_patchRequest.socket, CURLINFO_RESPONSE_CODE, &responseCode);
+
+            if (result != CURLE_OK || responseCode == 404 || responseCode == 409) {
+                std::lock_guard lock(m_stateLock);
+                m_masterAirports.erase(icao);
+                m_errorCode = "Master heartbeat failed for " + icao + " (HTTP " + std::to_string(responseCode) + ")";
+            }
+
             curl_easy_setopt(m_patchRequest.socket, CURLOPT_CUSTOMREQUEST, "PATCH"); // restore
+            __receivedPatchData.clear();
         }
     }
 }

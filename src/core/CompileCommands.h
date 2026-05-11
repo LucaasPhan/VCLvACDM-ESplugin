@@ -54,16 +54,30 @@ bool vACDM::OnCompileCommand(const char *sCommandLine) {
         } else if (userIsInSweatbox && !serverAllowsSweatboxAsMaster) {
             userIsNotEligibleMessage =
                 "You are logged in on a Sweatbox Server and Server does not allow Sweatbox connections";
+        } else if (!com::Server::instance().isSupportedAirport(icao)) {
+            userIsNotEligibleMessage = icao + " is not supported by this vACDM deployment";
         } else {
+            com::Server::instance().refreshAirportMetadata(icao);
+            const auto meta = com::Server::instance().getAirportMetadata(icao);
+            const std::string callsign = this->ControllerMyself().GetCallsign();
+
+            if (!meta.master.empty() && meta.master != callsign && !com::Server::instance().isMaster(icao)) {
+                DisplayMessage("Cannot upgrade to Master");
+                DisplayMessage(icao + " is already managed by " + meta.master);
+                return true;
+            }
+
             DisplayMessage("Claiming vACDM MASTER for " + icao);
             Logger::instance().log(Logger::LogSender::vACDM, "Claiming MASTER for " + icao, Logger::LogLevel::Info);
-            com::Server::instance().claimMaster(icao, this->ControllerMyself().GetCallsign(), this->ControllerMyself().GetCallsign());
+            com::Server::instance().claimMaster(icao, callsign, callsign);
             
             std::string err = com::Server::instance().errorMessage();
             if (!err.empty()) {
                 DisplayMessage(err);
             } else if (com::Server::instance().isMaster(icao)) {
                 DisplayMessage("vACDM MASTER claim successful for " + icao);
+                this->OnAirportRunwayActivityChanged();
+                this->runEuroscopeUpdate();
             }
             return true;
         }

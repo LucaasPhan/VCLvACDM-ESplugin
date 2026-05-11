@@ -86,11 +86,23 @@ void DataManager::run() {
         std::list<std::tuple<types::Pilot, DataManager::MessageType, Json::Value>> transmissionBuffer;
         for (auto& pilot : pilots) {
             const auto& consolidatedPilot = pilot.second[ConsolidatedData];
-            if (!Server::instance().isMaster(consolidatedPilot.origin)) continue;
+            if (!Server::instance().isMaster(consolidatedPilot.origin)) {
+                Logger::instance().log(Logger::LogSender::DataManager,
+                                       "Skipping " + consolidatedPilot.callsign + ": not master for " +
+                                           consolidatedPilot.origin,
+                                       Logger::LogLevel::Debug);
+                continue;
+            }
 
             Json::Value message;
             const auto sendType = DataManager::deltaEuroscopeToBackend(pilot.second, message);
-            if (MessageType::None != sendType) transmissionBuffer.push_back({consolidatedPilot, sendType, message});
+            if (MessageType::None != sendType) {
+                transmissionBuffer.push_back({consolidatedPilot, sendType, message});
+            } else {
+                Logger::instance().log(Logger::LogSender::DataManager,
+                                       "Skipping " + consolidatedPilot.callsign + ": no delta to send",
+                                       Logger::LogLevel::Debug);
+            }
         }
 
         for (const auto& transmission : std::as_const(transmissionBuffer)) {
@@ -526,7 +538,13 @@ void DataManager::consolidateFlightplanUpdates(std::list<EuroscopeFlightplanUpda
             std::lock_guard guard(this->m_airportLock);
             bool flightDepartsFromActiveAirport = std::find(m_activeAirports.begin(), m_activeAirports.end(),
                                                             std::string(pilot.origin)) != m_activeAirports.end();
-            if (false == flightDepartsFromActiveAirport) continue;
+            if (false == flightDepartsFromActiveAirport) {
+                Logger::instance().log(Logger::LogSender::DataManager,
+                                       "Ignoring " + pilot.callsign + ": origin " + pilot.origin +
+                                           " is not an active supported airport",
+                                       Logger::LogLevel::Debug);
+                continue;
+            }
         }
 
         // Check if the flight plan already exists in the result list

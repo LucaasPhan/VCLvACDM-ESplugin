@@ -4,6 +4,10 @@
 #include "EuroScopePlugIn.h"
 #pragma warning(pop)
 
+#include <algorithm>
+#include <cstring>
+#include <list>
+
 #include "core/DataManager.h"
 #include "core/Server.h"
 #include "log/Logger.h"
@@ -21,9 +25,6 @@ public:
 
     void OnButtonDownScreenObject(int ObjectType, const char* sObjectId, POINT pt, RECT Area, int nButton) override {
         if (nButton != 1) return; // Left click only
-
-        auto activeAirports = DataManager::instance().getActiveAirports();
-        if (activeAirports.empty()) return;
 
         m_isDragging = true;
         m_dragOffset.x = pt.x - m_panelX;
@@ -49,10 +50,17 @@ public:
     }
 
     void OnRefresh(HDC hDC, int Phase) override {
-        if (Phase != EuroScopePlugIn::REFRESH_PHASE_AFTER_TAGS) return;
+        if (Phase != EuroScopePlugIn::REFRESH_PHASE_AFTER_LISTS) return;
 
         auto activeAirports = DataManager::instance().getActiveAirports();
-        if (activeAirports.empty()) return;
+        auto masters = com::Server::instance().getMasterAirports();
+        std::list<std::string> displayAirports = activeAirports;
+
+        for (const auto& icao : masters) {
+            if (std::find(displayAirports.begin(), displayAirports.end(), icao) == displayAirports.end()) {
+                displayAirports.push_back(icao);
+            }
+        }
 
         // Draw status panel at its current position
         int x = m_panelX;
@@ -61,8 +69,8 @@ public:
         RECT r;
         r.left = x;
         r.top = y;
-        r.right = x + 120;
-        r.bottom = y + (static_cast<int>(activeAirports.size()) * 15) + 20;
+        r.right = x + 160;
+        r.bottom = y + (std::max(1, static_cast<int>(displayAirports.size())) * 15) + 20;
 
         // Register screen object for interaction
         this->AddScreenObject(1000, "StatusPanel", r, true, "");
@@ -71,6 +79,9 @@ public:
         HBRUSH bgBrush = CreateSolidBrush(RGB(30, 30, 30));
         FillRect(hDC, &r, bgBrush);
         DeleteObject(bgBrush);
+        HBRUSH borderBrush = CreateSolidBrush(RGB(110, 110, 110));
+        FrameRect(hDC, &r, borderBrush);
+        DeleteObject(borderBrush);
 
         SetBkMode(hDC, TRANSPARENT);
 
@@ -79,9 +90,14 @@ public:
         TextOutA(hDC, x + 5, y + 2, "vACDM STATUS", 12);
         y += 18;
 
-        auto masters = com::Server::instance().getMasterAirports();
+        if (displayAirports.empty()) {
+            SetTextColor(hDC, RGB(180, 180, 180));
+            const char* text = "NO ACTIVE AIRPORT";
+            TextOutA(hDC, x + 5, y, text, static_cast<int>(strlen(text)));
+            return;
+        }
 
-        for (const auto& icao : activeAirports) {
+        for (const auto& icao : displayAirports) {
             std::string text = icao + ": ";
             auto meta = com::Server::instance().getAirportMetadata(icao);
             

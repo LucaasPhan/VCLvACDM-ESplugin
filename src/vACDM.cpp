@@ -46,7 +46,9 @@ vACDM::vACDM()
     this->reloadConfiguration(true);
 }
 
-vACDM::~vACDM() {}
+vACDM::~vACDM() {
+    Server::instance().releaseAllMasters();
+}
 
 void vACDM::DisplayMessage(const std::string &message, const std::string &sender) {
     DisplayUserMessage("VCLvACDM", sender.c_str(), message.c_str(), true, false, false, false, false);
@@ -129,6 +131,15 @@ void vACDM::changeServerUrl(const std::string &url) {
 // Euroscope Events:
 
 void vACDM::OnTimer(int Counter) {
+    const bool isConnected = this->GetConnectionType() != EuroScopePlugIn::CONNECTION_TYPE_NO;
+    if (this->m_wasConnected && !isConnected) {
+        if (!Server::instance().getMasterAirports().empty()) {
+            Server::instance().releaseAllMasters(this->ControllerMyself().GetCallsign());
+            DisplayMessage("Released local MASTER claims after disconnect.", "Master");
+        }
+    }
+    this->m_wasConnected = isConnected;
+
     if (Counter % 5 == 0) this->runEuroscopeUpdate();
     if (Counter % 60 == 0) {
         com::Server::instance().sendHeartbeats(this->ControllerMyself().GetCallsign());

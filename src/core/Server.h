@@ -110,6 +110,7 @@ class Server {
     const std::string& errorMessage() const;
     void claimMaster(const std::string& icao, const std::string& cid, const std::string& name);
     void releaseMaster(const std::string& icao, const std::string& cid);
+    void releaseAllMasters(const std::string& cid = "");
     bool isMaster(const std::string& icao);
     void sendHeartbeats(const std::string& cid);
     std::set<std::string> getMasterAirports();
