@@ -70,10 +70,13 @@ void vACDM::checkServerConfiguration() {
 
 void vACDM::runEuroscopeUpdate() {
     com::Server::instance().setCid(this->ControllerMyself().GetCallsign());
+    std::set<std::string> activeCallsigns;
     for (EuroScopePlugIn::CFlightPlan flightplan = FlightPlanSelectFirst(); flightplan.IsValid();
          flightplan = FlightPlanSelectNext(flightplan)) {
+        activeCallsigns.insert(flightplan.GetCallsign());
         DataManager::instance().queueFlightplanUpdate(flightplan);
     }
+    DataManager::instance().prunePurgedCache(activeCallsigns);
 }
 
 void vACDM::SetGroundState(const EuroScopePlugIn::CFlightPlan flightplan, const std::string groundstate) {

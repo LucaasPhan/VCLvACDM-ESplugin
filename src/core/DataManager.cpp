@@ -352,13 +352,15 @@ DataManager::MessageType DataManager::deltaEuroscopeToBackend(const std::array<t
 
         auto lastDelta = deltaCount;
         message["position"] = Json::Value();
-        if (data[EuroscopeData].latitude != data[ServerData].latitude) {
-            message["position"]["lat"] = data[EuroscopeData].latitude;
-            deltaCount += 1;
-        }
-        if (data[EuroscopeData].longitude != data[ServerData].longitude) {
-            message["position"]["lon"] = data[EuroscopeData].longitude;
-            deltaCount += 1;
+        if (data[EuroscopeData].onGround) {
+            if (data[EuroscopeData].latitude != data[ServerData].latitude) {
+                message["position"]["lat"] = data[EuroscopeData].latitude;
+                deltaCount += 1;
+            }
+            if (data[EuroscopeData].longitude != data[ServerData].longitude) {
+                message["position"]["lon"] = data[EuroscopeData].longitude;
+                deltaCount += 1;
+            }
         }
         if (deltaCount == lastDelta) message.removeMember("position");
 
@@ -405,6 +407,12 @@ void DataManager::setActiveAirports(const std::list<std::string> activeAirports)
 
     std::lock_guard guard(this->m_airportLock);
     this->m_activeAirports = supportedAirports;
+
+    // Clear purged cache on airport change
+    {
+        std::lock_guard guard2(this->m_euroscopeUpdatesLock);
+        this->m_backendPurgedCallsigns.clear();
+    }
 }
 
 std::list<std::string> DataManager::getActiveAirports() {
@@ -415,9 +423,8 @@ std::list<std::string> DataManager::getActiveAirports() {
 void DataManager::queueFlightplanUpdate(EuroScopePlugIn::CFlightPlan flightplan) {
     // skip the update if:
     // - the flightplan or its data is invalid
-    // - or the aircraft is out of range therefore GetSimulated() is true
     if (false == flightplan.IsValid() || nullptr == flightplan.GetFlightPlanData().GetPlanType() ||
-        nullptr == flightplan.GetFlightPlanData().GetOrigin() || flightplan.GetSimulated())
+        nullptr == flightplan.GetFlightPlanData().GetOrigin())
         return;
 
     auto pilot = this->CFlightPlanToPilot(flightplan);
@@ -430,6 +437,18 @@ void DataManager::queueFlightplanUpdate(EuroScopePlugIn::CFlightPlan flightplan)
         return;
     }
     this->m_euroscopeFlightplanUpdates.push_back({std::chrono::utc_clock::now(), pilot});
+}
+
+void DataManager::prunePurgedCache(const std::set<std::string>& activeCallsigns) {
+    std::lock_guard guard(this->m_euroscopeUpdatesLock);
+    for (auto it = m_backendPurgedCallsigns.begin(); it != m_backendPurgedCallsigns.end(); ) {
+        if (activeCallsigns.find(*it) == activeCallsigns.end()) {
+            Logger::instance().log(Logger::LogSender::DataManager, "Pruning " + *it + " from purged cache", Logger::LogLevel::Debug);
+            it = m_backendPurgedCallsigns.erase(it);
+        } else {
+            ++it;
+        }
+    }
 }
 
 void DataManager::consolidateWithBackend(std::map<std::string, std::array<types::Pilot, 3U>>& pilots) {
@@ -451,6 +470,13 @@ void DataManager::consolidateWithBackend(std::map<std::string, std::array<types:
                 DataManager::consolidateData(pilot->second);
                 removeFlight = false;
                 foundInBackend = true;
+                
+                // Clear from purged cache if found again in backend
+                {
+                    std::lock_guard guard(this->m_euroscopeUpdatesLock);
+                    this->m_backendPurgedCallsigns.erase(updateIt->callsign);
+                }
+
                 updateIt = backendPilots.erase(updateIt);
                 break;
             }
@@ -474,6 +500,12 @@ void DataManager::consolidateWithBackend(std::map<std::string, std::array<types:
         } else {
             ++pilot;
         }
+    }
+
+    // handle remaining backendPilots (newly added or re-activated)
+    for (const auto& backendPilot : backendPilots) {
+        std::lock_guard guard(this->m_euroscopeUpdatesLock);
+        this->m_backendPurgedCallsigns.erase(backendPilot.callsign);
     }
 }
 
@@ -503,6 +535,7 @@ void DataManager::consolidateData(std::array<types::Pilot, 3>& pilot) {
         // EuroScope data
         pilot[ConsolidatedData].latitude = pilot[EuroscopeData].latitude;
         pilot[ConsolidatedData].longitude = pilot[EuroscopeData].longitude;
+        pilot[ConsolidatedData].onGround = pilot[EuroscopeData].onGround;
 
         pilot[ConsolidatedData].origin = pilot[EuroscopeData].origin;
         pilot[ConsolidatedData].destination = pilot[EuroscopeData].destination;
@@ -538,7 +571,15 @@ void DataManager::processEuroScopeUpdates(std::map<std::string, std::array<types
             // Pilot found, update the corresponding data
             Logger::instance().log(Logger::LogSender::DataManager, "Updated data of " + pilot.callsign,
                                    Logger::LogLevel::Info);
-            it->second[EuroscopeData] = pilot;
+            
+            auto updatedPilot = pilot;
+            // if airborne, stop tracking position and keep last known ground position
+            if (!updatedPilot.onGround) {
+                updatedPilot.latitude = it->second[EuroscopeData].latitude;
+                updatedPilot.longitude = it->second[EuroscopeData].longitude;
+            }
+            
+            it->second[EuroscopeData] = updatedPilot;
         } else {
             // Pilot not found, add a new entry
             Logger::instance().log(Logger::LogSender::DataManager,
@@ -606,15 +647,20 @@ types::Pilot DataManager::CFlightPlanToPilot(const EuroScopePlugIn::CFlightPlan 
     pilot.lastUpdate = std::chrono::utc_clock::now();
 
     // position data
-    if (Plugin->RadarTargetSelect(pilot.callsign.c_str()).IsValid()) {
-        // get the position of the flight using its radar target, it's more precise
-        pilot.latitude = Plugin->RadarTargetSelect(pilot.callsign.c_str()).GetPosition().GetPosition().m_Latitude;
-        pilot.longitude = Plugin->RadarTargetSelect(pilot.callsign.c_str()).GetPosition().GetPosition().m_Longitude;
+    auto target = Plugin->RadarTargetSelect(pilot.callsign.c_str());
+    if (target.IsValid()) {
+        pilot.onGround = target.GetPosition().GetOnGround();
+        // stop tracking position if airborne
+        if (pilot.onGround) {
+            pilot.latitude = target.GetPosition().GetPosition().m_Latitude;
+            pilot.longitude = target.GetPosition().GetPosition().m_Longitude;
+        }
     } else {
         // if we have no radar target we will use the fptrackposition,
         // not sufficient precision to determine the taxizone
         pilot.latitude = flightplan.GetFPTrackPosition().GetPosition().m_Latitude;
         pilot.longitude = flightplan.GetFPTrackPosition().GetPosition().m_Longitude;
+        pilot.onGround = true;
     }
 
     // flightplan & clearance data
