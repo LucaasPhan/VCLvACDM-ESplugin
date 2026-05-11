@@ -2,7 +2,7 @@
 
 Welcome to the Beta release of the VCLvACDM EuroScope plugin. This version introduces significant architectural changes and new operational features specifically tailored for VCL vACC (Vietnam).
 
-## 🚀 Key Beta Features
+## Key Beta Features
 
 ### 1. Advanced Status Tracking
 We have expanded the EuroScope Startup List with several new columns to provide a better overview of the sequence:
@@ -22,7 +22,7 @@ The plugin now synchronizes aircraft positions with the VCLvACDM backend for air
 
 ---
 
-## 🛠 How to Test
+## How to Test
 
 1. **Installation**:
    - Replace your existing `VCLvACDM.dll` with the beta version.
@@ -36,7 +36,7 @@ The plugin now synchronizes aircraft positions with the VCLvACDM backend for air
 
 ---
 
-## ⚠️ Known Issues & Limitations
+## Known Issues & Limitations
 
 - **LVO Flags**: Currently uses a hardcoded list for VVTS/VVNB. Dynamic LVO support via backend is coming soon.
 - **Tag Interactivity**: Direct clicking on tag items to set delays is still under development; please use dot commands for now.
@@ -44,7 +44,7 @@ The plugin now synchronizes aircraft positions with the VCLvACDM backend for air
 
 ---
 
-## 📝 Providing Feedback
+## Providing Feedback
 
 Your feedback is critical for a stable v1.3.0 release. Please report issues via the following channels:
 1. **Discord**: Post in the `#atc-tech-support` channel.
