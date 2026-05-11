@@ -381,8 +381,18 @@ DataManager::MessageType DataManager::deltaEuroscopeToBackend(const std::array<t
 }
 
 void DataManager::setActiveAirports(const std::list<std::string> activeAirports) {
+    std::list<std::string> supportedAirports;
+    for (const auto& icao : activeAirports) {
+        if (com::Server::instance().isSupportedAirport(icao)) {
+            supportedAirports.push_back(icao);
+        } else {
+            Logger::instance().log(Logger::LogSender::DataManager, "Ignoring unsupported active airport: " + icao,
+                                   Logger::LogLevel::Info);
+        }
+    }
+
     std::lock_guard guard(this->m_airportLock);
-    this->m_activeAirports = activeAirports;
+    this->m_activeAirports = supportedAirports;
 }
 
 std::list<std::string> DataManager::getActiveAirports() {

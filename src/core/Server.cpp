@@ -15,6 +15,7 @@ static std::string __receivedDeleteData;
 static std::string __receivedGetData;
 static std::string __receivedPatchData;
 static std::string __receivedPostData;
+static const std::set<std::string> kHardcodedSupportedAirports{"VVTS", "VVNB"};
 
 static std::size_t receiveCurlDelete(void* ptr, std::size_t size, std::size_t nmemb, void* stream) {
     (void)stream;
@@ -51,7 +52,7 @@ Server::Server()
       m_backendOnline(false),
       m_baseUrl("https://api.vclvacc.net"),
       m_masterAirports(),
-      m_supportedAirports(),
+      m_supportedAirports(kHardcodedSupportedAirports),
       m_errorCode() {
     /* configure the get request */
     curl_easy_setopt(m_getRequest.socket, CURLOPT_SSL_VERIFYPEER, 0L);
@@ -441,38 +442,10 @@ void Server::refreshAirportMetadata(const std::string& icao) {
 }
 
 void Server::refreshSupportedAirports() {
-    std::lock_guard guard(m_getRequest.lock);
-    if (m_getRequest.socket == nullptr) return;
-
-    __receivedGetData.clear();
-    std::string url = m_baseUrl + "/api/v1/airports";
-    curl_easy_setopt(m_getRequest.socket, CURLOPT_URL, url.c_str());
-    CURLcode result = curl_easy_perform(m_getRequest.socket);
-    if (result != CURLE_OK) return;
-
-    Json::CharReaderBuilder builder{};
-    auto reader = std::unique_ptr<Json::CharReader>(builder.newCharReader());
-    std::string errors;
-    Json::Value root;
-    if (reader->parse(__receivedGetData.c_str(), __receivedGetData.c_str() + __receivedGetData.length(), &root,
-                       &errors)) {
-        if (root.isArray()) {
-            std::set<std::string> supported;
-            for (const auto& airport : root) {
-                if (airport.isObject() && airport.isMember("icao")) {
-                    supported.insert(airport["icao"].asString());
-                } else if (airport.isString()) {
-                    supported.insert(airport.asString());
-                }
-            }
-            std::lock_guard lock(m_stateLock);
-            m_supportedAirports = supported;
-            Logger::instance().log(Logger::LogSender::Server,
-                                   "Refreshed supported airports: " + std::to_string(m_supportedAirports.size()) +
-                                       " airports configured on backend",
-                                   Logger::LogLevel::Info);
-        }
-    }
+    std::lock_guard lock(m_stateLock);
+    m_supportedAirports = kHardcodedSupportedAirports;
+    Logger::instance().log(Logger::LogSender::Server, "Supported airports hardcoded: VVTS VVNB",
+                           Logger::LogLevel::Info);
 }
 
 Server::AirportMetadata Server::getAirportMetadata(const std::string& icao) {
