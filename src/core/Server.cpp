@@ -647,8 +647,8 @@ void Server::claimMaster(const std::string& icao, const std::string& cid, const 
             if (responseCode == 409) {
                 m_errorCode = "Master claim rejected: " + icao + " is already managed by another controller.";
                 // Try to extract the name if present in JSON
-                Json::CharReaderBuilder builder{};
-                auto reader = std::unique_ptr<Json::CharReader>(builder.newCharReader());
+                Json::CharReaderBuilder readerBuilder{};
+                auto reader = std::unique_ptr<Json::CharReader>(readerBuilder.newCharReader());
                 std::string errors;
                 Json::Value resp;
                 if (reader->parse(__receivedPostData.c_str(), __receivedPostData.c_str() + __receivedPostData.length(), &resp, &errors)) {

@@ -649,7 +649,8 @@ types::Pilot DataManager::CFlightPlanToPilot(const EuroScopePlugIn::CFlightPlan 
     // position data
     auto target = Plugin->RadarTargetSelect(pilot.callsign.c_str());
     if (target.IsValid()) {
-        pilot.onGround = target.GetPosition().GetOnGround();
+        // SDK v16 does not provide GetOnGround(), use GS < 50 and altitude < 500ft as heuristic
+        pilot.onGround = target.GetGS() < 50 && target.GetPosition().GetPressureAltitude() < 500;
         // stop tracking position if airborne
         if (pilot.onGround) {
             pilot.latitude = target.GetPosition().GetPosition().m_Latitude;
