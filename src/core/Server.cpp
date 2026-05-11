@@ -440,7 +440,6 @@ void Server::refreshAirportMetadata(const std::string& icao) {
         meta.readOnly = (meta.status == "PRE_CDM" || meta.status == "INACTIVE");
         meta.master = root.get("master", Json::Value("")).asString();
         meta.lvo = root.get("lvoActive", root.get("lvo", Json::Value(false))).asBool();
-        meta.supportsLvo = root.get("supportsLvo", Json::Value(false)).asBool();
 
         if (root.isMember("delays") && root["delays"].isArray()) {
             for (const auto& delay : root["delays"]) {

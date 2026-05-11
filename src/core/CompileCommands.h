@@ -194,9 +194,8 @@ bool vACDM::OnCompileCommand(const char *sCommandLine) {
         std::string icao = elements[2];
         std::string state = elements[3];
 
-        auto meta = com::Server::instance().getAirportMetadata(icao);
-        if (!meta.supportsLvo) {
-            DisplayMessage("LVO is not configured/supported for " + icao);
+        if (icao != "VVTS" && icao != "VVNB") {
+            DisplayMessage("LVO command is only supported for VVTS and VVNB");
             return true;
         }
 
