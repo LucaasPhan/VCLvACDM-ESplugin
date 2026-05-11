@@ -423,16 +423,24 @@ void DataManager::queueFlightplanUpdate(EuroScopePlugIn::CFlightPlan flightplan)
     auto pilot = this->CFlightPlanToPilot(flightplan);
 
     std::lock_guard guard(this->m_euroscopeUpdatesLock);
+    if (this->m_backendPurgedCallsigns.find(pilot.callsign) != this->m_backendPurgedCallsigns.end()) {
+        Logger::instance().log(Logger::LogSender::DataManager,
+                               "Ignoring " + pilot.callsign + ": pilot was purged from backend",
+                               Logger::LogLevel::Debug);
+        return;
+    }
     this->m_euroscopeFlightplanUpdates.push_back({std::chrono::utc_clock::now(), pilot});
 }
 
 void DataManager::consolidateWithBackend(std::map<std::string, std::array<types::Pilot, 3U>>& pilots) {
     // retrieving backend data
     auto backendPilots = Server::instance().getPilots(this->m_activeAirports);
+    const bool backendFetchOk = Server::instance().lastPilotFetchOk();
 
     for (auto pilot = pilots.begin(); pilots.end() != pilot;) {
         // update backend data & consolidate
         bool removeFlight = pilot->second[ServerData].inactive == true;
+        bool foundInBackend = false;
         for (auto updateIt = backendPilots.begin(); updateIt != backendPilots.end(); ++updateIt) {
             if (updateIt->callsign == pilot->second[EuroscopeData].callsign) {
                 Logger::instance().log(
@@ -442,12 +450,25 @@ void DataManager::consolidateWithBackend(std::map<std::string, std::array<types:
                 pilot->second[ServerData] = *updateIt;
                 DataManager::consolidateData(pilot->second);
                 removeFlight = false;
+                foundInBackend = true;
                 updateIt = backendPilots.erase(updateIt);
                 break;
             }
         }
 
-        // remove pilot if he has been flagged as inactive from the backend
+        if (backendFetchOk && !foundInBackend && !pilot->second[ServerData].callsign.empty()) {
+            Logger::instance().log(Logger::LogSender::DataManager,
+                                   "Removing " + pilot->second[EuroscopeData].callsign +
+                                       ": pilot disappeared from backend",
+                                   Logger::LogLevel::Info);
+            {
+                std::lock_guard guard(this->m_euroscopeUpdatesLock);
+                this->m_backendPurgedCallsigns.insert(pilot->second[EuroscopeData].callsign);
+            }
+            removeFlight = true;
+        }
+
+        // remove pilot if he has been flagged as inactive or purged from the backend
         if (true == removeFlight) {
             pilot = pilots.erase(pilot);
         } else {

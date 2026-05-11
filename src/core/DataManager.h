@@ -3,6 +3,7 @@
 #include <list>
 #include <map>
 #include <mutex>
+#include <set>
 #include <string>
 #include <thread>
 
@@ -76,6 +77,7 @@ class DataManager {
 
     std::mutex m_euroscopeUpdatesLock;
     std::list<EuroscopeFlightplanUpdate> m_euroscopeFlightplanUpdates;
+    std::set<std::string> m_backendPurgedCallsigns;
 
     /// @brief consolidates all flightplan updates by throwing out old updates and keeping the most current ones
     /// @param list of flightplans to consolidate

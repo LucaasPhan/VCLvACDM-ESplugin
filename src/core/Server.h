@@ -49,6 +49,7 @@ class Server {
     bool m_apiIsChecked;
     bool m_apiIsValid;
     bool m_backendOnline;
+    bool m_lastPilotFetchOk;
     std::string m_baseUrl;
     std::set<std::string> m_masterAirports;
     std::set<std::string> m_supportedAirports;
@@ -72,6 +73,7 @@ class Server {
     void setCid(const std::string& cid);
     bool checkWebApi();
     bool backendOnline() const;
+    bool lastPilotFetchOk() const;
     ServerConfiguration_t getServerConfig();
     std::list<types::Pilot> getPilots(const std::list<std::string> airports);
     void postPilot(types::Pilot);

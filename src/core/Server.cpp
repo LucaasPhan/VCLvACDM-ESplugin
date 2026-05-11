@@ -50,6 +50,7 @@ Server::Server()
       m_apiIsChecked(false),
       m_apiIsValid(false),
       m_backendOnline(false),
+      m_lastPilotFetchOk(false),
       m_baseUrl("https://api.vclvacc.net"),
       m_masterAirports(),
       m_supportedAirports(kHardcodedSupportedAirports),
@@ -190,6 +191,8 @@ bool Server::checkWebApi() {
 
 bool Server::backendOnline() const { return this->m_backendOnline; }
 
+bool Server::lastPilotFetchOk() const { return this->m_lastPilotFetchOk; }
+
 Server::ServerConfiguration Server::getServerConfig() {
     if (false == this->m_apiIsChecked || false == this->m_apiIsValid) return Server::ServerConfiguration();
 
@@ -225,6 +228,8 @@ Server::ServerConfiguration Server::getServerConfig() {
 }
 
 std::list<types::Pilot> Server::getPilots(const std::list<std::string> airports) {
+    this->m_lastPilotFetchOk = false;
+
     std::list<std::string> supportedAirports;
     for (const auto& icao : airports) {
         if (this->isSupportedAirport(icao)) supportedAirports.push_back(icao);
@@ -258,6 +263,7 @@ std::list<types::Pilot> Server::getPilots(const std::list<std::string> airports)
             if (reader->parse(__receivedGetData.c_str(), __receivedGetData.c_str() + __receivedGetData.length(), &root,
                               &errors) &&
                 root.isArray()) {
+                this->m_lastPilotFetchOk = true;
                 std::list<types::Pilot> pilots;
 
                 for (const auto& pilot : std::as_const(root)) {
