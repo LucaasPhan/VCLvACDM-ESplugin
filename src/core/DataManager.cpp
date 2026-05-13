@@ -151,6 +151,8 @@ void DataManager::processAsynchronousMessages(std::map<std::string, std::array<t
                 break;
             case MessageType::UpdateASAT:
                 Server::instance().updateAsat(message.callsign, message.value);
+                data[ConsolidatedData].asat = message.value;
+                data[EuroscopeData].asat = message.value;
                 messageType = "ASAT";
                 break;
             case MessageType::UpdateASRT:
@@ -628,6 +630,11 @@ void DataManager::processEuroScopeUpdates(std::map<std::string, std::array<types
     for (auto& update : flightplanUpdates) {
         const auto& pilot = update.data;
 
+        const std::string newGS = pilot.groundState;
+        const auto now = std::chrono::utc_clock::now();
+        std::string prevGS = "";
+        types::Pilot updatedPilot;
+
         auto it = pilots.find(pilot.callsign);
 
         if (it != pilots.end()) {
@@ -636,89 +643,95 @@ void DataManager::processEuroScopeUpdates(std::map<std::string, std::array<types
                                    Logger::LogLevel::Info);
 
             const auto& prevES = it->second[EuroscopeData];
-            const std::string prevGS = prevES.groundState;
-            const std::string newGS  = pilot.groundState;
-            const auto now = std::chrono::utc_clock::now();
+            prevGS = prevES.groundState;
 
-            auto updatedPilot = pilot;
+            updatedPilot = pilot;
 
             // Carry over already-recorded ASAT/AOBT/ATOT so they are never reset
             if (prevES.asat != types::defaultTime) updatedPilot.asat = prevES.asat;
             if (prevES.aobt != types::defaultTime) updatedPilot.aobt = prevES.aobt;
             if (prevES.atot != types::defaultTime) updatedPilot.atot = prevES.atot;
-
-            // --- ASAT auto-recording (STUP / PUSH transition) ---
-            if (updatedPilot.asat == types::defaultTime) {
-                bool wasSTUPorPUSH = (prevGS == "STUP" || prevGS == "PUSH");
-                bool isSTUPorPUSH  = (newGS  == "STUP" || newGS  == "PUSH");
-                if (!wasSTUPorPUSH && isSTUPorPUSH) {
-                    Logger::instance().log(Logger::LogSender::DataManager,
-                                           "[" + pilot.callsign + "] Auto-recording ASAT on " + newGS,
-                                           Logger::LogLevel::Info);
-                    updatedPilot.asat = now;
-                    std::lock_guard asyncGuard(this->m_asyncMessagesLock);
-                    this->m_asynchronousMessages.push_back({MessageType::UpdateASAT, pilot.callsign, now});
-                }
-            }
-
-            // --- AOBT auto-recording (PUSH / TAXI transition) ---
-            if (updatedPilot.aobt == types::defaultTime) {
-                bool wasPUSHorTAXI = (prevGS == "PUSH" || prevGS == "TAXI");
-                bool isPUSHorTAXI  = (newGS  == "PUSH" || newGS  == "TAXI");
-                if (!wasPUSHorTAXI && isPUSHorTAXI) {
-                    Logger::instance().log(Logger::LogSender::DataManager,
-                                           "[" + pilot.callsign + "] Auto-recording AOBT on " + newGS,
-                                           Logger::LogLevel::Info);
-                    updatedPilot.aobt = now;
-                    std::lock_guard asyncGuard(this->m_asyncMessagesLock);
-                    this->m_asynchronousMessages.push_back({MessageType::UpdateAOBTAuto, pilot.callsign, now});
-                }
-            }
-
-            // --- ATOT auto-recording (TAKE OFF / DEPA transition) ---
-            if (updatedPilot.atot == types::defaultTime) {
-                bool wasTakeOff = (prevGS == "TAKE OFF" || prevGS == "DEPA");
-                bool isTakeOff  = (newGS  == "TAKE OFF" || newGS  == "DEPA");
-                if (!wasTakeOff && isTakeOff) {
-                    Logger::instance().log(Logger::LogSender::DataManager,
-                                           "[" + pilot.callsign + "] Auto-recording ATOT on " + newGS,
-                                           Logger::LogLevel::Info);
-                    updatedPilot.atot = now;
-                    std::lock_guard asyncGuard(this->m_asyncMessagesLock);
-                    this->m_asynchronousMessages.push_back({MessageType::UpdateATOT, pilot.callsign, now});
-                }
-            }
-
-            // --- READY status sync: queue ground-state change if server says READY ---
-            {
-                const auto& serverData = it->second[ServerData];
-                if (serverData.tobt_state == "READY" && newGS != "READY") {
-                    std::lock_guard actionGuard(this->m_euroscopeActionsLock);
-                    // Only queue once
-                    bool alreadyQueued = false;
-                    for (const auto& a : this->m_euroscopeActions) {
-                        if (a.callsign == pilot.callsign) { alreadyQueued = true; break; }
-                    }
-                    if (!alreadyQueued) {
-                        Logger::instance().log(Logger::LogSender::DataManager,
-                                               "[" + pilot.callsign + "] Queueing READY ground-state sync",
-                                               Logger::LogLevel::Info);
-                        this->m_euroscopeActions.push_back({pilot.callsign, "READY"});
-                    }
-                }
-            }
-
-            it->second[EuroscopeData] = updatedPilot;
         } else {
             // Pilot not found, add a new entry
             Logger::instance().log(Logger::LogSender::DataManager,
                                    "Added new pilot entry for callsign: " + pilot.callsign, Logger::LogLevel::Info);
-            pilots.insert({pilot.callsign, std::array<types::Pilot, 3U>{pilot, pilot, types::Pilot()}});
+            updatedPilot = pilot;
+            // prevGS remains ""
+        }
+
+        // --- ASAT auto-recording (STUP / PUSH transition) ---
+        if (updatedPilot.asat == types::defaultTime) {
+            bool wasSTUPorPUSH = (prevGS == "STUP" || prevGS == "PUSH");
+            bool isSTUPorPUSH  = (newGS  == "STUP" || newGS  == "PUSH");
+            if (!wasSTUPorPUSH && isSTUPorPUSH) {
+                Logger::instance().log(Logger::LogSender::DataManager,
+                                       "[" + pilot.callsign + "] Auto-recording ASAT on " + newGS,
+                                       Logger::LogLevel::Info);
+                updatedPilot.asat = now;
+                std::lock_guard asyncGuard(this->m_asyncMessagesLock);
+                this->m_asynchronousMessages.push_back({MessageType::UpdateASAT, pilot.callsign, now});
+            }
+        }
+
+        // --- AOBT auto-recording (PUSH / TAXI transition) ---
+        if (updatedPilot.aobt == types::defaultTime) {
+            bool wasPUSHorTAXI = (prevGS == "PUSH" || prevGS == "TAXI");
+            bool isPUSHorTAXI  = (newGS  == "PUSH" || newGS  == "TAXI");
+            if (!wasPUSHorTAXI && isPUSHorTAXI) {
+                Logger::instance().log(Logger::LogSender::DataManager,
+                                       "[" + pilot.callsign + "] Auto-recording AOBT on " + newGS,
+                                       Logger::LogLevel::Info);
+                updatedPilot.aobt = now;
+                std::lock_guard asyncGuard(this->m_asyncMessagesLock);
+                this->m_asynchronousMessages.push_back({MessageType::UpdateAOBTAuto, pilot.callsign, now});
+            }
+        }
+
+        // --- ATOT auto-recording (TAKE OFF / DEPA transition) ---
+        if (updatedPilot.atot == types::defaultTime) {
+            bool wasTakeOff = (prevGS == "TAKE OFF" || prevGS == "DEPA");
+            bool isTakeOff  = (newGS  == "TAKE OFF" || newGS  == "DEPA");
+            if (!wasTakeOff && isTakeOff) {
+                Logger::instance().log(Logger::LogSender::DataManager,
+                                       "[" + pilot.callsign + "] Auto-recording ATOT on " + newGS,
+                                       Logger::LogLevel::Info);
+                updatedPilot.atot = now;
+                std::lock_guard asyncGuard(this->m_asyncMessagesLock);
+                this->m_asynchronousMessages.push_back({MessageType::UpdateATOT, pilot.callsign, now});
+            }
+        }
+
+        // --- READY status sync: queue ground-state change if server says READY ---
+        if (it != pilots.end()) {
+            const auto& serverData = it->second[ServerData];
+            if ((serverData.tobt_state == "READY" || serverData.ardt != types::defaultTime || serverData.asrt != types::defaultTime) && newGS != "READY") {
+                std::lock_guard actionGuard(this->m_euroscopeActionsLock);
+                // Only queue once
+                bool alreadyQueued = false;
+                for (const auto& a : this->m_euroscopeActions) {
+                    if (a.callsign == pilot.callsign) {
+                        alreadyQueued = true;
+                        break;
+                    }
+                }
+                if (!alreadyQueued) {
+                    Logger::instance().log(Logger::LogSender::DataManager,
+                                           "[" + pilot.callsign + "] Queueing READY ground-state sync",
+                                           Logger::LogLevel::Info);
+                    this->m_euroscopeActions.push_back({pilot.callsign, "READY"});
+                }
+            }
+        }
+
+        if (it != pilots.end()) {
+            it->second[EuroscopeData] = updatedPilot;
+        } else {
+            pilots.insert({pilot.callsign, std::array<types::Pilot, 3U>{updatedPilot, updatedPilot, types::Pilot()}});
         }
     }
 }
 
-void DataManager::consolidateFlightplanUpdates(std::list<EuroscopeFlightplanUpdate>& inputList) {
+void DataManager::consolidateFlightplanUpdates(std::list<DataManager::EuroscopeFlightplanUpdate>& inputList) {
     std::list<DataManager::EuroscopeFlightplanUpdate> resultList;
 
     for (const auto& currentUpdate : inputList) {

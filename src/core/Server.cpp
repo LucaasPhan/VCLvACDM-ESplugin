@@ -311,6 +311,7 @@ std::list<types::Pilot> Server::getPilots(const std::list<std::string> airports)
                     pilots.back().aobt = utils::Date::isoStringToTimestamp(fieldOrLegacy("aobt").asString());
                     pilots.back().atot = utils::Date::isoStringToTimestamp(fieldOrLegacy("atot").asString());
                     pilots.back().asrt = utils::Date::isoStringToTimestamp(fieldOrLegacy("asrt").asString());
+                    pilots.back().ardt = utils::Date::isoStringToTimestamp(fieldOrLegacy("ardt").asString());
                     pilots.back().aort = utils::Date::isoStringToTimestamp(fieldOrLegacy("aort").asString());
                     
                     // Phase 1+ fields

@@ -48,6 +48,7 @@ typedef struct Pilot_t {
     std::chrono::utc_clock::time_point aobt = defaultTime;
     std::chrono::utc_clock::time_point atot = defaultTime;
     std::chrono::utc_clock::time_point asrt = defaultTime;
+    std::chrono::utc_clock::time_point ardt = defaultTime;
     std::chrono::utc_clock::time_point aort = defaultTime;
     std::string tsac;
     std::string tobtSetBy;
