@@ -1,4 +1,4 @@
-# VCLvACDM 1.3.0-beta1 — Beta Testing Guide
+# VCLvACDM 1.3.0rc1 — Release Candidate Testing Guide
 
 Welcome to the Beta release of the VCLvACDM EuroScope plugin. This version introduces significant architectural changes and new operational features specifically tailored for VCL vACC (Vietnam).
 

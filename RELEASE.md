@@ -1,6 +1,18 @@
 # RELEASE.md — VCLvACDM Plugin Changelog
 
-## [1.2.0] — 2026-05-11
+## [1.3.0rc1] — 2026-05-13
+### Added
+- **Instant Synchronization**: Any ACDM status change in the radar tag now triggers an immediate data push to the server, eliminating the 5-second background sync delay for critical updates.
+- **Auto-EOBT Sync**: Planned flight plans with future EOBTs are now automatically synced as "FLIGHTPLAN" TOBTs, reducing manual entry for pre-departure flights.
+- **Optimized Auto-Recording**: Improved detection for `STUP`, `PUSH`, and `TAXI` transitions to ensure real-time backend updates.
+
+### Fixed
+- Fixed compilation errors with certain EuroScope SDK headers in the `.acdm REACTIVATE` command.
+- Cleaned up build output by resolving multiple unused parameter warnings.
+
+---
+
+## [1.3.0-beta1] — 2026-05-12
 ### Added
 - **Rebranding**: Complete migration from `vACDM` to `VCLvACDM` branding across all messages and internal strings.
 - **Enhanced Status Panel**:
