@@ -64,7 +64,8 @@ class DataManager {
         RemoveLocalPilot,
         UpdateTSAC,
         UpdateATOT,
-        UpdateAOBTAuto
+        UpdateAOBTAuto,
+        TriggerPush
     };
 
    private:

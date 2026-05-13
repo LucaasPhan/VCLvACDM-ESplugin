@@ -313,6 +313,7 @@ std::list<types::Pilot> Server::getPilots(const std::list<std::string> airports)
                     pilots.back().asrt = utils::Date::isoStringToTimestamp(fieldOrLegacy("asrt").asString());
                     pilots.back().ardt = utils::Date::isoStringToTimestamp(fieldOrLegacy("ardt").asString());
                     pilots.back().aort = utils::Date::isoStringToTimestamp(fieldOrLegacy("aort").asString());
+                    pilots.back().groundState = fieldOrLegacy("ground_state").asString();
                     
                     // Phase 1+ fields
                     pilots.back().tsac = pilot.get("tsac", Json::Value("")).asString();
@@ -420,6 +421,8 @@ void Server::postPilot(types::Pilot pilot) {
     root["flightType"] = pilot.flightType.empty() ? (isDomestic ? "DOMESTIC" : "INTERNATIONAL") : pilot.flightType;
     root["airline"] = pilot.airline;
     root["exemptFromCdm"] = false;
+    root["vacdm"] = Json::Value();
+    root["vacdm"]["ground_state"] = pilot.groundState;
 
     this->sendPostMessage("/api/v1/pilots", root);
 }

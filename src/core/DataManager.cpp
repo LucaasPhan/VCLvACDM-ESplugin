@@ -220,6 +220,18 @@ void DataManager::processAsynchronousMessages(std::map<std::string, std::array<t
                     messageType = "ATOT auto-recorded";
                 }
                 break;
+            case MessageType::TriggerPush:
+                {
+                    Json::Value pushMessage;
+                    const auto sendType = DataManager::deltaEuroscopeToBackend(data, pushMessage);
+                    if (MessageType::Patch == sendType) {
+                        Server::instance().sendPatchMessage("/api/v1/pilots/" + message.callsign, pushMessage);
+                        messageType = "Immediate data sync";
+                    } else {
+                        messageType = "Immediate sync (no changes)";
+                    }
+                }
+                break;
 
             default:
                 break;
@@ -244,6 +256,8 @@ void DataManager::handleTagFunction(MessageType type, const std::string callsign
     {
         std::lock_guard guard(this->m_asyncMessagesLock);
         this->m_asynchronousMessages.push_back({type, callsign, value});
+        // also trigger an immediate full sync of other pilot data to backend
+        this->m_asynchronousMessages.push_back({MessageType::TriggerPush, callsign, std::chrono::utc_clock::now()});
     }
 
     // set the data locally, gives feedback to user that the action was handled, might get overwritten again in the
@@ -294,6 +308,11 @@ void DataManager::handleTagFunction(MessageType type, const std::string callsign
             break;
         case MessageType::UpdateASRT:
             pilot.asrt = value;
+            // also trigger local ground-state sync to READY
+            {
+                std::lock_guard actionGuard(this->m_euroscopeActionsLock);
+                this->m_euroscopeActions.push_back({callsign, "READY"});
+            }
             break;
         case MessageType::UpdateAOBT:
             pilot.aobt = value;
@@ -418,6 +437,11 @@ DataManager::MessageType DataManager::deltaEuroscopeToBackend(const std::array<t
             message["clearance"]["sid"] = data[EuroscopeData].sid;
         }
         if (deltaCount == lastDelta) message.removeMember("clearance");
+
+        if (data[EuroscopeData].groundState != data[ServerData].groundState) {
+            deltaCount += 1;
+            message["vacdm"]["ground_state"] = data[EuroscopeData].groundState;
+        }
 
         return deltaCount != 0 ? DataManager::MessageType::Patch : DataManager::MessageType::None;
     }
@@ -603,6 +627,7 @@ void DataManager::consolidateData(std::array<types::Pilot, 3>& pilot) {
         pilot[ConsolidatedData].aircraft = pilot[EuroscopeData].aircraft;
         pilot[ConsolidatedData].flightType = pilot[EuroscopeData].flightType;
         pilot[ConsolidatedData].airline = pilot[EuroscopeData].airline;
+        pilot[ConsolidatedData].groundState = pilot[EuroscopeData].groundState;
 
         pilot[ConsolidatedData].exemptFromCdm = pilot[ServerData].exemptFromCdm;
         pilot[ConsolidatedData].groundHandler = pilot[ServerData].groundHandler;
@@ -701,10 +726,14 @@ void DataManager::processEuroScopeUpdates(std::map<std::string, std::array<types
             }
         }
 
-        // --- READY status sync: queue ground-state change if server says READY ---
+        // --- READY status sync: queue ground-state change if server or local data says READY ---
         if (it != pilots.end()) {
+            const auto& esData = it->second[EuroscopeData];
             const auto& serverData = it->second[ServerData];
-            if ((serverData.tobt_state == "READY" || serverData.ardt != types::defaultTime || serverData.asrt != types::defaultTime) && newGS != "READY") {
+            bool isReadyInServer = (serverData.tobt_state == "READY" || serverData.ardt != types::defaultTime || serverData.asrt != types::defaultTime);
+            bool isReadyInES = (esData.asrt != types::defaultTime || esData.asat != types::defaultTime);
+
+            if ((isReadyInServer || isReadyInES) && newGS != "READY") {
                 std::lock_guard actionGuard(this->m_euroscopeActionsLock);
                 // Only queue once
                 bool alreadyQueued = false;
