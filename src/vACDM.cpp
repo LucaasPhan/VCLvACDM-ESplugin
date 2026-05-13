@@ -73,6 +73,12 @@ void vACDM::runEuroscopeUpdate() {
     std::set<std::string> activeCallsigns;
     for (EuroScopePlugIn::CFlightPlan flightplan = FlightPlanSelectFirst(); flightplan.IsValid();
          flightplan = FlightPlanSelectNext(flightplan)) {
+        // Stop tracking departures once they are airborne and have climbed above 2500ft
+        auto target = flightplan.GetCorrelatedRadarTarget();
+        if (target.IsValid() && target.GetPosition().GetPressureAltitude() > 2500) {
+            continue;
+        }
+
         activeCallsigns.insert(flightplan.GetCallsign());
         DataManager::instance().queueFlightplanUpdate(flightplan);
     }

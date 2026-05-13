@@ -454,8 +454,9 @@ void DataManager::queueFlightplanUpdate(EuroScopePlugIn::CFlightPlan flightplan)
         nullptr == flightplan.GetFlightPlanData().GetOrigin())
         return;
 
-    // skip if not connected to the network / no correlated radar target
-    if (!flightplan.GetCorrelatedRadarTarget().IsValid()) {
+    // skip if aircraft has already departed (climb above 2500ft)
+    auto target = flightplan.GetCorrelatedRadarTarget();
+    if (target.IsValid() && target.GetPosition().GetPressureAltitude() > 2500) {
         return;
     }
 
