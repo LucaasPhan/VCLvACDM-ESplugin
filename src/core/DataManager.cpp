@@ -308,11 +308,6 @@ void DataManager::handleTagFunction(MessageType type, const std::string callsign
             break;
         case MessageType::UpdateASRT:
             pilot.asrt = value;
-            // also trigger local ground-state sync to READY
-            {
-                std::lock_guard actionGuard(this->m_euroscopeActionsLock);
-                this->m_euroscopeActions.push_back({callsign, "READY"});
-            }
             break;
         case MessageType::UpdateAOBT:
             pilot.aobt = value;
@@ -695,6 +690,7 @@ void DataManager::processEuroScopeUpdates(std::map<std::string, std::array<types
                 updatedPilot.asat = now;
                 std::lock_guard asyncGuard(this->m_asyncMessagesLock);
                 this->m_asynchronousMessages.push_back({MessageType::UpdateASAT, pilot.callsign, now});
+                this->m_asynchronousMessages.push_back({MessageType::TriggerPush, pilot.callsign, now});
             }
         }
 
@@ -709,6 +705,7 @@ void DataManager::processEuroScopeUpdates(std::map<std::string, std::array<types
                 updatedPilot.aobt = now;
                 std::lock_guard asyncGuard(this->m_asyncMessagesLock);
                 this->m_asynchronousMessages.push_back({MessageType::UpdateAOBTAuto, pilot.callsign, now});
+                this->m_asynchronousMessages.push_back({MessageType::TriggerPush, pilot.callsign, now});
             }
         }
 
@@ -723,34 +720,10 @@ void DataManager::processEuroScopeUpdates(std::map<std::string, std::array<types
                 updatedPilot.atot = now;
                 std::lock_guard asyncGuard(this->m_asyncMessagesLock);
                 this->m_asynchronousMessages.push_back({MessageType::UpdateATOT, pilot.callsign, now});
+                this->m_asynchronousMessages.push_back({MessageType::TriggerPush, pilot.callsign, now});
             }
         }
 
-        // --- READY status sync: queue ground-state change if server or local data says READY ---
-        if (it != pilots.end()) {
-            const auto& esData = it->second[EuroscopeData];
-            const auto& serverData = it->second[ServerData];
-            bool isReadyInServer = (serverData.tobt_state == "READY" || serverData.ardt != types::defaultTime || serverData.asrt != types::defaultTime);
-            bool isReadyInES = (esData.asrt != types::defaultTime || esData.asat != types::defaultTime);
-
-            if ((isReadyInServer || isReadyInES) && newGS != "READY") {
-                std::lock_guard actionGuard(this->m_euroscopeActionsLock);
-                // Only queue once
-                bool alreadyQueued = false;
-                for (const auto& a : this->m_euroscopeActions) {
-                    if (a.callsign == pilot.callsign) {
-                        alreadyQueued = true;
-                        break;
-                    }
-                }
-                if (!alreadyQueued) {
-                    Logger::instance().log(Logger::LogSender::DataManager,
-                                           "[" + pilot.callsign + "] Queueing READY ground-state sync",
-                                           Logger::LogLevel::Info);
-                    this->m_euroscopeActions.push_back({pilot.callsign, "READY"});
-                }
-            }
-        }
 
         if (it != pilots.end()) {
             it->second[EuroscopeData] = updatedPilot;
