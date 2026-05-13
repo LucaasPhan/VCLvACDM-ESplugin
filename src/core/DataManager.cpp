@@ -642,15 +642,30 @@ void DataManager::processEuroScopeUpdates(std::map<std::string, std::array<types
 
             auto updatedPilot = pilot;
 
-            // Carry over already-recorded AOBT/ATOT so they are never reset
+            // Carry over already-recorded ASAT/AOBT/ATOT so they are never reset
+            if (prevES.asat != types::defaultTime) updatedPilot.asat = prevES.asat;
             if (prevES.aobt != types::defaultTime) updatedPilot.aobt = prevES.aobt;
             if (prevES.atot != types::defaultTime) updatedPilot.atot = prevES.atot;
 
-            // --- AOBT auto-recording (STUP / PUSH transition) ---
+            // --- ASAT auto-recording (STUP / PUSH transition) ---
+            if (updatedPilot.asat == types::defaultTime) {
+                bool wasSTUPorPUSH = (prevGS == "STUP" || prevGS == "PUSH");
+                bool isSTUPorPUSH  = (newGS  == "STUP" || newGS  == "PUSH");
+                if (!wasSTUPorPUSH && isSTUPorPUSH) {
+                    Logger::instance().log(Logger::LogSender::DataManager,
+                                           "[" + pilot.callsign + "] Auto-recording ASAT on " + newGS,
+                                           Logger::LogLevel::Info);
+                    updatedPilot.asat = now;
+                    std::lock_guard asyncGuard(this->m_asyncMessagesLock);
+                    this->m_asynchronousMessages.push_back({MessageType::UpdateASAT, pilot.callsign, now});
+                }
+            }
+
+            // --- AOBT auto-recording (PUSH / TAXI transition) ---
             if (updatedPilot.aobt == types::defaultTime) {
-                bool wasMoving = (prevGS == "STUP" || prevGS == "PUSH");
-                bool isMoving  = (newGS  == "STUP" || newGS  == "PUSH");
-                if (!wasMoving && isMoving) {
+                bool wasPUSHorTAXI = (prevGS == "PUSH" || prevGS == "TAXI");
+                bool isPUSHorTAXI  = (newGS  == "PUSH" || newGS  == "TAXI");
+                if (!wasPUSHorTAXI && isPUSHorTAXI) {
                     Logger::instance().log(Logger::LogSender::DataManager,
                                            "[" + pilot.callsign + "] Auto-recording AOBT on " + newGS,
                                            Logger::LogLevel::Info);
