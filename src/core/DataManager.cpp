@@ -438,6 +438,21 @@ DataManager::MessageType DataManager::deltaEuroscopeToBackend(const std::array<t
             message["vacdm"]["ground_state"] = data[EuroscopeData].groundState;
         }
 
+        if (data[EuroscopeData].asat != data[ServerData].asat) {
+            deltaCount += 1;
+            message["vacdm"]["asat"] = utils::Date::timestampToIsoString(data[EuroscopeData].asat);
+        }
+
+        if (data[EuroscopeData].aobt != data[ServerData].aobt) {
+            deltaCount += 1;
+            message["vacdm"]["aobt"] = utils::Date::timestampToIsoString(data[EuroscopeData].aobt);
+        }
+
+        if (data[EuroscopeData].atot != data[ServerData].atot) {
+            deltaCount += 1;
+            message["vacdm"]["atot"] = utils::Date::timestampToIsoString(data[EuroscopeData].atot);
+        }
+
         return deltaCount != 0 ? DataManager::MessageType::Patch : DataManager::MessageType::None;
     }
 }
