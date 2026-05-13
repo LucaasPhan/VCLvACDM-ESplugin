@@ -446,9 +446,22 @@ DataManager::MessageType DataManager::deltaEuroscopeToBackend(const std::array<t
         }
         if (deltaCount == lastDelta) message.removeMember("clearance");
 
+        // patch vacdm data
         if (data[EuroscopeData].groundState != data[ServerData].groundState) {
             deltaCount += 1;
             message["vacdm"]["ground_state"] = data[EuroscopeData].groundState;
+        }
+
+        // push EOBT as TOBT if the EOBT is in the future and differs from server TOBT
+        {
+            const auto now = std::chrono::utc_clock::now();
+            const auto& esEobt = data[EuroscopeData].eobt;
+            const auto& serverTobt = data[ServerData].tobt;
+            if (esEobt != types::defaultTime && esEobt > now && esEobt != serverTobt) {
+                deltaCount += 1;
+                message["vacdm"]["tobt"] = utils::Date::timestampToIsoString(esEobt);
+                message["vacdm"]["tobt_state"] = "FLIGHTPLAN";
+            }
         }
 
         if (data[EuroscopeData].asat != data[ServerData].asat) {
