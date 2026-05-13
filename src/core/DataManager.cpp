@@ -94,6 +94,24 @@ void DataManager::run() {
                 continue;
             }
 
+            // For inactive aircraft: send position-only so backend can check
+            // if the aircraft has spawned at a resolvable parking stand.
+            // Skip all other delta logic.
+            if (pilot.second[ServerData].inactive) {
+                const auto& es = pilot.second[EuroscopeData];
+                if (es.latitude != 0.0 || es.longitude != 0.0) {
+                    Json::Value posMsg;
+                    posMsg["callsign"] = es.callsign;
+                    posMsg["position"]["lat"] = es.latitude;
+                    posMsg["position"]["lon"] = es.longitude;
+                    transmissionBuffer.push_back({consolidatedPilot, MessageType::Patch, posMsg});
+                    Logger::instance().log(Logger::LogSender::DataManager,
+                                           "[Inactive] Sending position probe for " + es.callsign,
+                                           Logger::LogLevel::Debug);
+                }
+                continue;
+            }
+
             Json::Value message;
             const auto sendType = DataManager::deltaEuroscopeToBackend(pilot.second, message);
             if (MessageType::None != sendType) {
@@ -552,7 +570,9 @@ void DataManager::consolidateWithBackend(std::map<std::string, std::array<types:
 
     for (auto pilot = pilots.begin(); pilots.end() != pilot;) {
         // update backend data & consolidate
-        bool removeFlight = pilot->second[ServerData].inactive == true;
+        // Keep inactive aircraft in the local map so the position probe loop
+        // can still send updates; re-activation is handled by the backend.
+        bool removeFlight = false;
         bool foundInBackend = false;
         for (auto updateIt = backendPilots.begin(); updateIt != backendPilots.end(); ++updateIt) {
             if (updateIt->callsign == pilot->second[EuroscopeData].callsign) {
