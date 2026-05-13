@@ -49,7 +49,7 @@ void vACDM::RegisterTagItemFuntions() {
     // Tag functions disabled to prevent conflict with GroundRadar plugin
 }
 
-void vACDM::OnFunctionCall(int functionId, const char *itemString, POINT pt, RECT area) {
+void vACDM::OnFunctionCall(int /*functionId*/, const char * /*itemString*/, POINT /*pt*/, RECT /*area*/) {
     // Tag functions disabled to prevent conflict with GroundRadar plugin
 }
 }  // namespace vacdm

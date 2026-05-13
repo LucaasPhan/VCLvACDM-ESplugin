@@ -279,8 +279,8 @@ bool vACDM::OnCompileCommand(const char *sCommandLine) {
             return true;
         }
 
-        double lat = fp.GetFPTrackPosition().GetLatitude();
-        double lon = fp.GetFPTrackPosition().GetLongitude();
+        double lat = fp.GetFPTrackPosition().GetPosition().m_Latitude;
+        double lon = fp.GetFPTrackPosition().GetPosition().m_Longitude;
         
         com::Server::instance().probeParkingStand(callsign, lat, lon);
         DisplayMessage("Re-activation probe sent for " + callsign);

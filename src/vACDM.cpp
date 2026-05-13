@@ -228,7 +228,7 @@ void vACDM::OnAirportRunwayActivityChanged() {
     DataManager::instance().setActiveAirports(activeAirports);
 }
 
-EuroScopePlugIn::CRadarScreen* vACDM::OnRadarScreenCreated(const char* sDisplayName, bool BuiltIn, bool GndFilter, bool RealTime, bool ModeS) {
+EuroScopePlugIn::CRadarScreen* vACDM::OnRadarScreenCreated(const char* /*sDisplayName*/, bool /*BuiltIn*/, bool /*GndFilter*/, bool /*RealTime*/, bool /*ModeS*/) {
     return new core::StatusPanel();
 }
 

@@ -23,7 +23,7 @@ public:
     virtual ~StatusPanel() {}
     void OnAsrContentToBeClosed(void) override { delete this; }
 
-    void OnButtonDownScreenObject(int ObjectType, const char* sObjectId, POINT pt, RECT Area, int nButton) override {
+    void OnButtonDownScreenObject(int /*ObjectType*/, const char* sObjectId, POINT pt, RECT /*Area*/, int nButton) override {
         if (nButton != 1) return;
         if (strcmp(sObjectId, "StatusPanel") == 0) {
             m_isDragging = true;
@@ -32,7 +32,7 @@ public:
         }
     }
 
-    void OnMoveScreenObject(int ObjectType, const char* sObjectId, POINT pt, RECT Area, bool Released) override {
+    void OnMoveScreenObject(int /*ObjectType*/, const char* /*sObjectId*/, POINT pt, RECT /*Area*/, bool Released) override {
         if (m_isDragging) {
             if (Released) {
                 m_isDragging = false;
@@ -44,7 +44,7 @@ public:
         }
     }
 
-    void OnButtonUpScreenObject(int ObjectType, const char* sObjectId, POINT pt, RECT Area, int nButton) override {
+    void OnButtonUpScreenObject(int /*ObjectType*/, const char* /*sObjectId*/, POINT /*pt*/, RECT /*Area*/, int nButton) override {
         if (nButton == 1)
             m_isDragging = false;
     }
