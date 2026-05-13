@@ -599,6 +599,13 @@ void Server::postDelay(const std::string& icao, const std::string& runway, const
     this->sendPostMessage("/api/v1/airports/" + icao + "/delays", root);
 }
 
+void Server::probeParkingStand(const std::string& callsign, double lat, double lon) {
+    Json::Value root;
+    root["lat"] = lat;
+    root["lon"] = lon;
+    this->sendPatchMessage("/api/v1/pilots/" + callsign + "/probe-parking", root);
+}
+
 void Server::resetTobt(const std::string& callsign, const std::chrono::utc_clock::time_point& tobt,
                        const std::string& tobtState) {
     Json::Value root;

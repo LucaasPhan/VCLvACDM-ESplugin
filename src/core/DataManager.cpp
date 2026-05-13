@@ -94,19 +94,14 @@ void DataManager::run() {
                 continue;
             }
 
-            // For inactive aircraft: send position-only so backend can check
-            // if the aircraft has spawned at a resolvable parking stand.
-            // Skip all other delta logic.
+            // For inactive aircraft: probe the dedicated parking endpoint so backend
+            // can resolve the stand and re-activate if the pilot has spawned back.
             if (pilot.second[ServerData].inactive) {
                 const auto& es = pilot.second[EuroscopeData];
                 if (es.latitude != 0.0 || es.longitude != 0.0) {
-                    Json::Value posMsg;
-                    posMsg["callsign"] = es.callsign;
-                    posMsg["position"]["lat"] = es.latitude;
-                    posMsg["position"]["lon"] = es.longitude;
-                    transmissionBuffer.push_back({consolidatedPilot, MessageType::Patch, posMsg});
+                    Server::instance().probeParkingStand(es.callsign, es.latitude, es.longitude);
                     Logger::instance().log(Logger::LogSender::DataManager,
-                                           "[Inactive] Sending position probe for " + es.callsign,
+                                           "[Inactive] Parking probe sent for " + es.callsign,
                                            Logger::LogLevel::Debug);
                 }
                 continue;

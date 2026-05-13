@@ -110,6 +110,7 @@ class Server {
 
     void toggleLvo(const std::string& icao, bool active);
     void postDelay(const std::string& icao, const std::string& runway, const std::string& type, const std::string& time);
+    void probeParkingStand(const std::string& callsign, double lat, double lon);
 
     const std::string& errorMessage() const;
     void claimMaster(const std::string& icao, const std::string& cid, const std::string& name);
