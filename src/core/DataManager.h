@@ -61,7 +61,10 @@ class DataManager {
         ResetAORT,
         ResetAOBT,
         ResetPilot,
-        UpdateTSAC
+        RemoveLocalPilot,
+        UpdateTSAC,
+        UpdateATOT,
+        UpdateAOBTAuto
     };
 
    private:
@@ -106,11 +109,19 @@ class DataManager {
     std::list<struct AsynchronousMessage> m_asynchronousMessages;
     void processAsynchronousMessages(std::map<std::string, std::array<types::Pilot, 3U>> &pilots);
 
+    struct EuroScopeAction {
+        std::string callsign;
+        std::string groundState;
+    };
+    std::mutex m_euroscopeActionsLock;
+    std::list<EuroScopeAction> m_euroscopeActions;
+
    public:
     void setActiveAirports(const std::list<std::string> activeAirports);
     std::list<std::string> getActiveAirports();
     void queueFlightplanUpdate(EuroScopePlugIn::CFlightPlan flightplan);
     void prunePurgedCache(const std::set<std::string> &activeCallsigns);
+    void handleDisconnectedFlights(const std::set<std::string>& activeCallsigns);
     void handleTagFunction(MessageType message, const std::string callsign,
                            const std::chrono::utc_clock::time_point value);
 
@@ -118,5 +129,8 @@ class DataManager {
     const types::Pilot getPilot(const std::string &callsign);
     void pause();
     void resume();
+
+    /// @brief Drains the EuroScope action queue; call from EuroScope main thread only.
+    std::list<EuroScopeAction> popEuroScopeActions();
 };
 }  // namespace vacdm::core

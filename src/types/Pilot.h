@@ -34,6 +34,7 @@ typedef struct Pilot_t {
     std::string airline;
     std::string groundHandler;
     bool exemptFromCdm = false;
+    std::string groundState;
 
     // ACDM procedure data
 

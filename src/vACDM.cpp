@@ -73,9 +73,12 @@ void vACDM::runEuroscopeUpdate() {
     std::set<std::string> activeCallsigns;
     for (EuroScopePlugIn::CFlightPlan flightplan = FlightPlanSelectFirst(); flightplan.IsValid();
          flightplan = FlightPlanSelectNext(flightplan)) {
+        if (!this->RadarTargetSelect(flightplan.GetCallsign()).IsValid()) continue;
+        
         activeCallsigns.insert(flightplan.GetCallsign());
         DataManager::instance().queueFlightplanUpdate(flightplan);
     }
+    DataManager::instance().handleDisconnectedFlights(activeCallsigns);
     DataManager::instance().prunePurgedCache(activeCallsigns);
 }
 
@@ -148,6 +151,15 @@ void vACDM::OnTimer(int Counter) {
     this->m_wasConnected = isConnected;
 
     if (Counter % 5 == 0) this->runEuroscopeUpdate();
+
+    // Apply any ground-state changes queued by the background thread (must run on main thread)
+    for (const auto& action : DataManager::instance().popEuroScopeActions()) {
+        EuroScopePlugIn::CFlightPlan fp = this->FlightPlanSelect(action.callsign.c_str());
+        if (fp.IsValid()) {
+            this->SetGroundState(fp, action.groundState);
+        }
+    }
+
     if (Counter % 60 == 0) {
         com::Server::instance().sendHeartbeats(this->ControllerMyself().GetCallsign());
     }
