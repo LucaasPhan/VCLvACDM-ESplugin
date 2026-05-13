@@ -266,14 +266,24 @@ bool vACDM::OnCompileCommand(const char *sCommandLine) {
             DisplayMessage("Delay set for " + icao + " " + rwy + " from " + absoluteTime + "z");
         }
         return true;
-    } else if (std::string::npos != command.find("FLOW")) {
+    } else if (std::string::npos != command.find("REACTIVATE")) {
         const auto elements = vacdm::utils::String::splitString(command, " ");
         if (elements.size() < 3) {
-            DisplayMessage("Usage: .acdm FLOW <ICAO>");
+            DisplayMessage("Usage: .acdm REACTIVATE <CALLSIGN>");
             return true;
         }
-        com::Server::instance().sendPostMessage("/api/v1/airports/" + elements[2] + "/flow/reload", Json::Value());
-        DisplayMessage("ETFMS flow refresh requested for " + elements[2]);
+        std::string callsign = elements[2];
+        EuroScopePlugIn::CFlightPlan fp = this->FlightPlanSelect(callsign.c_str());
+        if (!fp.IsValid()) {
+            DisplayMessage("Callsign " + callsign + " not found in EuroScope.");
+            return true;
+        }
+
+        double lat = fp.GetFPTrackPosition().GetLatitude();
+        double lon = fp.GetFPTrackPosition().GetLongitude();
+        
+        com::Server::instance().probeParkingStand(callsign, lat, lon);
+        DisplayMessage("Re-activation probe sent for " + callsign);
         return true;
     }
     return false;
