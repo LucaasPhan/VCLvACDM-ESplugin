@@ -73,9 +73,6 @@ void vACDM::runEuroscopeUpdate() {
     std::set<std::string> activeCallsigns;
     for (EuroScopePlugIn::CFlightPlan flightplan = FlightPlanSelectFirst(); flightplan.IsValid();
          flightplan = FlightPlanSelectNext(flightplan)) {
-        // Only process aircraft that are correlated with a radar target (i.e., connected and visible)
-        if (!flightplan.GetCorrelatedRadarTarget().IsValid()) continue;
-
         activeCallsigns.insert(flightplan.GetCallsign());
         DataManager::instance().queueFlightplanUpdate(flightplan);
     }

@@ -370,11 +370,6 @@ DataManager::MessageType DataManager::deltaEuroscopeToBackend(const std::array<t
             deltaCount += 1;
         }
 
-        if (data[EuroscopeData].onGround != data[ServerData].onGround) {
-            message["onGround"] = data[EuroscopeData].onGround;
-            deltaCount += 1;
-        }
-
         if (data[EuroscopeData].aircraft != data[ServerData].aircraft) {
             message["aircraft"] = data[EuroscopeData].aircraft;
             deltaCount += 1;
@@ -382,15 +377,13 @@ DataManager::MessageType DataManager::deltaEuroscopeToBackend(const std::array<t
 
         auto lastDelta = deltaCount;
         message["position"] = Json::Value();
-        if (data[EuroscopeData].onGround) {
-            if (data[EuroscopeData].latitude != data[ServerData].latitude) {
-                message["position"]["lat"] = data[EuroscopeData].latitude;
-                deltaCount += 1;
-            }
-            if (data[EuroscopeData].longitude != data[ServerData].longitude) {
-                message["position"]["lon"] = data[EuroscopeData].longitude;
-                deltaCount += 1;
-            }
+        if (data[EuroscopeData].latitude != data[ServerData].latitude) {
+            message["position"]["lat"] = data[EuroscopeData].latitude;
+            deltaCount += 1;
+        }
+        if (data[EuroscopeData].longitude != data[ServerData].longitude) {
+            message["position"]["lon"] = data[EuroscopeData].longitude;
+            deltaCount += 1;
         }
         if (deltaCount == lastDelta) message.removeMember("position");
 
@@ -599,7 +592,6 @@ void DataManager::consolidateData(std::array<types::Pilot, 3>& pilot) {
         // EuroScope data
         pilot[ConsolidatedData].latitude = pilot[EuroscopeData].latitude;
         pilot[ConsolidatedData].longitude = pilot[EuroscopeData].longitude;
-        pilot[ConsolidatedData].onGround = pilot[EuroscopeData].onGround;
 
         pilot[ConsolidatedData].origin = pilot[EuroscopeData].origin;
         pilot[ConsolidatedData].destination = pilot[EuroscopeData].destination;
@@ -652,12 +644,6 @@ void DataManager::processEuroScopeUpdates(std::map<std::string, std::array<types
             // Carry over already-recorded AOBT/ATOT so they are never reset
             if (prevES.aobt != types::defaultTime) updatedPilot.aobt = prevES.aobt;
             if (prevES.atot != types::defaultTime) updatedPilot.atot = prevES.atot;
-
-            // if airborne, stop tracking position and keep last known ground position
-            if (!updatedPilot.onGround) {
-                updatedPilot.latitude = prevES.latitude;
-                updatedPilot.longitude = prevES.longitude;
-            }
 
             // --- AOBT auto-recording (STUP / PUSH transition) ---
             if (updatedPilot.aobt == types::defaultTime) {
@@ -776,19 +762,12 @@ types::Pilot DataManager::CFlightPlanToPilot(const EuroScopePlugIn::CFlightPlan 
     // position data
     auto target = Plugin->RadarTargetSelect(pilot.callsign.c_str());
     if (target.IsValid()) {
-        // SDK v16 does not provide GetOnGround(), use GS < 50 and altitude < 500ft as heuristic
-        pilot.onGround = target.GetGS() < 50 && target.GetPosition().GetPressureAltitude() < 500;
-        // stop tracking position if airborne
-        if (pilot.onGround) {
-            pilot.latitude = target.GetPosition().GetPosition().m_Latitude;
-            pilot.longitude = target.GetPosition().GetPosition().m_Longitude;
-        }
+        pilot.latitude = target.GetPosition().GetPosition().m_Latitude;
+        pilot.longitude = target.GetPosition().GetPosition().m_Longitude;
     } else {
-        // if we have no radar target we will use the fptrackposition,
-        // not sufficient precision to determine the taxizone
+        // if we have no radar target we will use the fptrackposition
         pilot.latitude = flightplan.GetFPTrackPosition().GetPosition().m_Latitude;
         pilot.longitude = flightplan.GetFPTrackPosition().GetPosition().m_Longitude;
-        pilot.onGround = true;
     }
 
     // flightplan & clearance data

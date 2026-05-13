@@ -20,7 +20,6 @@ typedef struct Pilot_t {
 
     double latitude = 0.0;
     double longitude = 0.0;
-    bool onGround = true;
     bool taxizoneIsTaxiout = false;
 
     // flightplan & clearance data

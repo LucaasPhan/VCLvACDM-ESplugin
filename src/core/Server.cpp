@@ -277,7 +277,6 @@ std::list<types::Pilot> Server::getPilots(const std::list<std::string> airports)
                     // position data
                     pilots.back().latitude = pilot["position"]["lat"].asDouble();
                     pilots.back().longitude = pilot["position"]["lon"].asDouble();
-                    pilots.back().onGround = pilot.get("onGround", Json::Value(true)).asBool();
                     pilots.back().taxizoneIsTaxiout = pilot["vacdm"]["taxizoneIsTaxiout"].asBool();
 
                     // flightplan & clearance data
@@ -419,7 +418,6 @@ void Server::postPilot(types::Pilot pilot) {
     const bool isDomestic = pilot.origin.rfind("VV", 0) == 0 && pilot.destination.rfind("VV", 0) == 0;
     root["flightType"] = pilot.flightType.empty() ? (isDomestic ? "DOMESTIC" : "INTERNATIONAL") : pilot.flightType;
     root["airline"] = pilot.airline;
-    root["onGround"] = pilot.onGround;
     root["exemptFromCdm"] = false;
 
     this->sendPostMessage("/api/v1/pilots", root);
