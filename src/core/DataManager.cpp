@@ -461,8 +461,8 @@ void DataManager::queueFlightplanUpdate(EuroScopePlugIn::CFlightPlan flightplan)
         nullptr == flightplan.GetFlightPlanData().GetOrigin())
         return;
 
-    // skip if not connected to the network / no radar target
-    if (!Plugin->RadarTargetSelect(flightplan.GetCallsign()).IsValid()) {
+    // skip if not connected to the network / no correlated radar target
+    if (!flightplan.GetCorrelatedRadarTarget().IsValid()) {
         return;
     }
 

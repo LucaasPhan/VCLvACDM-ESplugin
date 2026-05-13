@@ -73,8 +73,9 @@ void vACDM::runEuroscopeUpdate() {
     std::set<std::string> activeCallsigns;
     for (EuroScopePlugIn::CFlightPlan flightplan = FlightPlanSelectFirst(); flightplan.IsValid();
          flightplan = FlightPlanSelectNext(flightplan)) {
-        if (!this->RadarTargetSelect(flightplan.GetCallsign()).IsValid()) continue;
-        
+        // Only process aircraft that are correlated with a radar target (i.e., connected and visible)
+        if (!flightplan.GetCorrelatedRadarTarget().IsValid()) continue;
+
         activeCallsigns.insert(flightplan.GetCallsign());
         DataManager::instance().queueFlightplanUpdate(flightplan);
     }
@@ -137,8 +138,9 @@ void vACDM::changeServerUrl(const std::string &url) {
 // Euroscope Events:
 
 void vACDM::OnTimer(int Counter) {
-    if (this->GetConnectionType() == EuroScopePlugIn::CONNECTION_TYPE_NO && !this->m_debugMode) return;
     const bool isConnected = this->GetConnectionType() != EuroScopePlugIn::CONNECTION_TYPE_NO;
+
+    // Handle connect/disconnect transitions first, before any early return
     if (this->m_wasConnected && !isConnected) {
         if (!Server::instance().getMasterAirports().empty()) {
             Server::instance().releaseAllMasters(this->ControllerMyself().GetCallsign());
@@ -149,6 +151,8 @@ void vACDM::OnTimer(int Counter) {
         this->OnAirportRunwayActivityChanged();
     }
     this->m_wasConnected = isConnected;
+
+    if (!isConnected && !this->m_debugMode) return;
 
     if (Counter % 5 == 0) this->runEuroscopeUpdate();
 
