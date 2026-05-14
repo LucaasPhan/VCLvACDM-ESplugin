@@ -202,24 +202,33 @@ void vACDM::OnGetTagItem(EuroScopePlugIn::CFlightPlan FlightPlan, EuroScopePlugI
             *pRGB = Color::pluginConfig.darkgreen;
             break;
         case itemType::STATUS:
-            if (pilot.ctot != types::defaultTime) {
-                outputText << "CTO";
-                *pRGB = Color::pluginConfig.orange;
-            } else if (pilot.tsatReset) {
-                outputText << "RES";
-                *pRGB = Color::pluginConfig.red;
-            } else if (eStatus == "I") {
-                outputText << "PAS";
-                *pRGB = Color::pluginConfig.orange;
+            if (pilot.aobt != types::defaultTime) {
+                outputText << "DEPARTED";
+                *pRGB = Color::pluginConfig.darkgreen;
             } else if (pilot.asat != types::defaultTime) {
-                outputText << "STR"; // Started
+                outputText << "STARTUP APPROVED";
                 *pRGB = Color::pluginConfig.darkgreen;
             } else if (pilot.asrt != types::defaultTime) {
-                outputText << "RDY";
+                outputText << "REQ STARTUP";
+                *pRGB = Color::pluginConfig.darkgreen;
+            } else if (pilot.ready) {
+                outputText << "READY";
                 *pRGB = Color::pluginConfig.darkgreen;
             } else if (pilot.tsat != types::defaultTime) {
-                outputText << "SEQ";
+                outputText << "SEQUENCED";
                 *pRGB = Color::pluginConfig.darkgreen;
+            } else if (pilot.tobt != types::defaultTime) {
+                outputText << "TOBT SET";
+                *pRGB = Color::pluginConfig.darkgreen;
+            } else if (pilot.ctot != types::defaultTime) {
+                outputText << "CTOT";
+                *pRGB = Color::pluginConfig.orange;
+            } else if (pilot.tsatReset) {
+                outputText << "RESET";
+                *pRGB = Color::pluginConfig.red;
+            } else if (eStatus == "I") {
+                outputText << "PAST";
+                *pRGB = Color::pluginConfig.orange;
             }
             break;
         default:

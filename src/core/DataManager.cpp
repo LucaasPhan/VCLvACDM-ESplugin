@@ -81,6 +81,8 @@ void DataManager::run() {
 
         this->processEuroScopeUpdates(pilots);
 
+        this->processPendingUpdates(pilots);
+
         this->consolidateWithBackend(pilots);
 
         std::list<std::tuple<types::Pilot, DataManager::MessageType, Json::Value>> transmissionBuffer;
@@ -723,32 +725,44 @@ void DataManager::processEuroScopeUpdates(std::map<std::string, std::array<types
         }
 
         // --- ASAT auto-recording (STUP / PUSH transition) ---
-        if (updatedPilot.asat == types::defaultTime) {
+        bool hasAsrt = (it != pilots.end() && it->second[ConsolidatedData].asrt != types::defaultTime);
+
+        if (updatedPilot.asat == types::defaultTime && hasAsrt) {
             bool wasSTUPorPUSH = (prevGS == "STUP" || prevGS == "PUSH");
             bool isSTUPorPUSH  = (newGS  == "STUP" || newGS  == "PUSH");
             if (!wasSTUPorPUSH && isSTUPorPUSH) {
                 Logger::instance().log(Logger::LogSender::DataManager,
-                                       "[" + pilot.callsign + "] Auto-recording ASAT on " + newGS,
+                                       "[" + pilot.callsign + "] Queueing ASAT auto-record (5s delay) on " + newGS,
                                        Logger::LogLevel::Info);
-                updatedPilot.asat = now;
-                std::lock_guard asyncGuard(this->m_asyncMessagesLock);
-                this->m_asynchronousMessages.push_back({MessageType::UpdateASAT, pilot.callsign, now});
-                this->m_asynchronousMessages.push_back({MessageType::TriggerPush, pilot.callsign, now});
+                
+                std::lock_guard pendingGuard(this->m_pendingUpdatesLock);
+                this->m_pendingUpdates.push_back({
+                    MessageType::UpdateASAT,
+                    pilot.callsign,
+                    now,
+                    now + std::chrono::seconds(5),
+                    newGS
+                });
             }
         }
-
+// (AOBT logic below)
         // --- AOBT auto-recording (PUSH / TAXI transition) ---
-        if (updatedPilot.aobt == types::defaultTime) {
+        if (updatedPilot.aobt == types::defaultTime && hasAsrt) {
             bool wasPUSHorTAXI = (prevGS == "PUSH" || prevGS == "TAXI");
             bool isPUSHorTAXI  = (newGS  == "PUSH" || newGS  == "TAXI");
             if (!wasPUSHorTAXI && isPUSHorTAXI) {
                 Logger::instance().log(Logger::LogSender::DataManager,
-                                       "[" + pilot.callsign + "] Auto-recording AOBT on " + newGS,
+                                       "[" + pilot.callsign + "] Queueing AOBT auto-record (5s delay) on " + newGS,
                                        Logger::LogLevel::Info);
-                updatedPilot.aobt = now;
-                std::lock_guard asyncGuard(this->m_asyncMessagesLock);
-                this->m_asynchronousMessages.push_back({MessageType::UpdateAOBTAuto, pilot.callsign, now});
-                this->m_asynchronousMessages.push_back({MessageType::TriggerPush, pilot.callsign, now});
+
+                std::lock_guard pendingGuard(this->m_pendingUpdatesLock);
+                this->m_pendingUpdates.push_back({
+                    MessageType::UpdateAOBTAuto,
+                    pilot.callsign,
+                    now,
+                    now + std::chrono::seconds(5),
+                    newGS
+                });
             }
         }
 
@@ -893,6 +907,55 @@ types::Pilot DataManager::CFlightPlanToPilot(const EuroScopePlugIn::CFlightPlan 
     pilot.tobt = pilot.eobt;
 
     return pilot;
+}
+
+void DataManager::processPendingUpdates(std::map<std::string, std::array<types::Pilot, 3U>>& pilots) {
+    std::list<PendingUpdate> triggered;
+    const auto now = std::chrono::utc_clock::now();
+
+    {
+        std::lock_guard guard(this->m_pendingUpdatesLock);
+        auto it = m_pendingUpdates.begin();
+        while (it != m_pendingUpdates.end()) {
+            auto pilotIt = pilots.find(it->callsign);
+            if (pilotIt == pilots.end()) {
+                it = m_pendingUpdates.erase(it);
+                continue;
+            }
+
+            const auto& currentES = pilotIt->second[EuroscopeData];
+            
+            // Check if the current GS still matches the state that triggered the update
+            bool stillValid = false;
+            if (it->type == MessageType::UpdateASAT) {
+                stillValid = (currentES.groundState == "STUP" || currentES.groundState == "PUSH");
+            } else if (it->type == MessageType::UpdateAOBTAuto) {
+                stillValid = (currentES.groundState == "PUSH" || currentES.groundState == "TAXI");
+            }
+
+            if (!stillValid) {
+                Logger::instance().log(Logger::LogSender::DataManager,
+                                       "[" + it->callsign + "] Cancelled pending " + (it->type == MessageType::UpdateASAT ? "ASAT" : "AOBT") + " (GS changed to " + currentES.groundState + ")",
+                                       Logger::LogLevel::Info);
+                it = m_pendingUpdates.erase(it);
+            } else if (now >= it->triggerTime) {
+                triggered.push_back(*it);
+                it = m_pendingUpdates.erase(it);
+            } else {
+                ++it;
+            }
+        }
+    }
+
+    for (const auto& update : triggered) {
+        Logger::instance().log(Logger::LogSender::DataManager,
+                               "[" + update.callsign + "] 5s passed, committing " + (update.type == MessageType::UpdateASAT ? "ASAT" : "AOBT"),
+                               Logger::LogLevel::Info);
+        
+        std::lock_guard asyncGuard(this->m_asyncMessagesLock);
+        this->m_asynchronousMessages.push_back({update.type, update.callsign, update.recordedTime});
+        this->m_asynchronousMessages.push_back({MessageType::TriggerPush, update.callsign, update.recordedTime});
+    }
 }
 
 std::list<DataManager::EuroScopeAction> DataManager::popEuroScopeActions() {
