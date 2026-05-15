@@ -31,7 +31,7 @@ build/Release/VCLvACDM.dll
 ### HTTP Communication
 All HTTP calls are **asynchronous** — they must never block the EuroScope main thread. Follow the existing pattern: queue requests to a background thread, process results when EuroScope calls back into the plugin.
  
-The plugin polls the backend every `UPDATE_RATE_SECONDS` (default 5):
+The plugin polls the backend every 5 seconds:
 ```
 POST   /api/v1/pilots              ← upsert pilot from EuroScope data
 GET    /api/v1/pilots?airport=ICAO ← read back TSAT/TTOT computed by server
@@ -45,13 +45,13 @@ GET    /api/v1/health              ← backend connectivity check
 ### Config File (`vacdm.txt`)
 Loaded from same directory as the DLL. Key settings:
 - `SERVER_url` — backend base URL (no trailing slash)
-- `UPDATE_RATE_SECONDS` — poll interval 1–10
+- `API_KEY` — backend API key for authentication
 ### Pilot Data Flow
 EuroScope → plugin reads flight plan + radar target → POST to backend → backend calculates TSAT/TTOT → GET back → plugin renders in EuroScope startup list columns
  
 ### Master/Slave Mode
-- `.vacdm master` — enables write mode (TOBT edits, ASRT/ASAT marking)
-- `.vacdm slave` — read-only mode (default)
+- `.acdm master` — enables write mode (TOBT edits, ASRT/ASAT marking)
+- `.acdm slave` — read-only mode (default)
 - Only master can send PATCH requests
 ## Vietnam-Specific Fields
 These fields are added by this fork (not in original vACDM plugin):
@@ -86,13 +86,12 @@ These fields are added by this fork (not in original vACDM plugin):
  
 ## Dot Commands
 ```
-.vacdm master                  → enable write mode
-.vacdm slave                   → enable read-only mode
-.vacdm reload                  → reload vacdm.txt
-.vacdm log on/off/debug        → logging control
-.vacdm updaterate <1-10>       → change poll interval
-.vacdm exempt <callsign>       → mark flight CDM-exempt (VIP/SAR)
-.vacdm unexempt <callsign>     → remove CDM-exempt flag
+.acdm master                  → enable write mode
+.acdm slave                   → enable read-only mode
+.acdm reload                  → reload vacdm.txt
+.acdm log on/off/debug        → logging control
+.acdm exempt <callsign>       → mark flight CDM-exempt (VIP/SAR)
+.acdm unexempt <callsign>     → remove CDM-exempt flag
 ```
  
 ## Critical Rules

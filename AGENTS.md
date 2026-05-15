@@ -49,7 +49,7 @@ EuroScope plugins are event-driven. The main entry points are:
 - `OnGetTagItem()` — render a startup list column
 - `OnFunctionCall()` — ATC clicks a column to edit
 - `OnTimer()` — periodic tick (drives the HTTP update loop)
-- `OnCompileCommand()` — handles `.vacdm` dot commands
+- `OnCompileCommand()` — handles `.acdm` dot commands
 
 ## API Contract (memorise this)
 The plugin sends/receives JSON to/from the NestJS backend. Field names are hardcoded strings. Any mismatch = silent data loss. The exact contract is in `CLAUDE.md` and `API_CONTRACT.md`. When in doubt, check those files — do not guess field names.
@@ -64,7 +64,7 @@ The plugin sends/receives JSON to/from the NestJS backend. Field names are hardc
 Before marking any task complete:
 - [ ] Plugin compiles without errors (`cmake --build build --config Release`)
 - [ ] No new warnings introduced
-- [ ] All new `.vacdm` commands documented in `README.md`
+- [ ] All new `.acdm` commands documented in `README.md`
 - [ ] No blocking HTTP calls on EuroScope main thread
 - [ ] `VCLvACDM.dll` produced (not `vACDM.dll`)
 - [ ] `vacdm.txt.template` updated if new config keys added

@@ -20,7 +20,6 @@ All commands use the `.acdm` prefix.
 - `.acdm slave` — Release all local mastership claims.
 - `.acdm slave <ICAO>` — Release mastership for a specific airport.
 - `.acdm reload` — Reload settings from `vacdm.txt` without restarting EuroScope.
-- `.acdm updaterate <seconds>` — Set the poll interval (e.g., `.acdm updaterate 5`). Valid range: 1–30s.
 - `.acdm debug on|off` — Toggle Debug Mode (allows polling and commands while disconnected).
 
 ### Flight & Sequence Control

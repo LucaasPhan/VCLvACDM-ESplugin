@@ -123,7 +123,6 @@ void vACDM::reloadConfiguration(bool initialLoading) {
             this->checkServerConfiguration();
 
         this->m_pluginConfig = newConfig;
-        DisplayMessage(DataManager::instance().setUpdateCycleSeconds(newConfig.updateCycleSeconds));
         tagitems::Color::updatePluginConfig(newConfig);
     }
 }

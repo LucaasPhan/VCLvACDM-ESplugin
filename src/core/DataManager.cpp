@@ -42,15 +42,6 @@ void DataManager::pause() { this->m_pause = true; }
 
 void DataManager::resume() { this->m_pause = false; }
 
-std::string DataManager::setUpdateCycleSeconds(const int newUpdateCycleSeconds) {
-    if (newUpdateCycleSeconds < minUpdateCycleSeconds || newUpdateCycleSeconds > maxUpdateCycleSeconds)
-        return "Could not set update rate";
-
-    this->updateCycleSeconds = newUpdateCycleSeconds;
-
-    return "VCLvACDM updating every " +
-           (newUpdateCycleSeconds == 1 ? "second" : std::to_string(newUpdateCycleSeconds) + " seconds");
-}
 
 void DataManager::run() {
     std::size_t counter = 1;
