@@ -87,10 +87,10 @@ void DataManager::run() {
         for (auto& pilot : pilots) {
             const auto& consolidatedPilot = pilot.second[ConsolidatedData];
             if (!Server::instance().isMaster(consolidatedPilot.origin)) {
-                Logger::instance().log(Logger::LogSender::DataManager,
-                                       "Skipping " + consolidatedPilot.callsign + ": not master for " +
-                                           consolidatedPilot.origin,
-                                       Logger::LogLevel::Debug);
+                Logger::instance().log(
+                    Logger::LogSender::DataManager,
+                    "Skipping " + consolidatedPilot.callsign + ": not master for " + consolidatedPilot.origin,
+                    Logger::LogLevel::Debug);
                 continue;
             }
 
@@ -101,8 +101,7 @@ void DataManager::run() {
                 if (es.latitude != 0.0 || es.longitude != 0.0) {
                     Server::instance().probeParkingStand(es.callsign, es.latitude, es.longitude);
                     Logger::instance().log(Logger::LogSender::DataManager,
-                                           "[Inactive] Parking probe sent for " + es.callsign,
-                                           Logger::LogLevel::Debug);
+                                           "[Inactive] Parking probe sent for " + es.callsign, Logger::LogLevel::Debug);
                 }
                 continue;
             }
@@ -223,28 +222,24 @@ void DataManager::processAsynchronousMessages(std::map<std::string, std::array<t
                 data[EuroscopeData].aobt = message.value;
                 messageType = "AOBT auto-recorded";
                 break;
-            case MessageType::UpdateATOT:
-                {
-                    Json::Value atotPatch;
-                    atotPatch["vacdm"]["atot"] = utils::Date::timestampToIsoString(message.value);
-                    Server::instance().sendPatchMessage("/api/v1/pilots/" + message.callsign, atotPatch);
-                    data[ConsolidatedData].atot = message.value;
-                    data[EuroscopeData].atot = message.value;
-                    messageType = "ATOT auto-recorded";
+            case MessageType::UpdateATOT: {
+                Json::Value atotPatch;
+                atotPatch["vacdm"]["atot"] = utils::Date::timestampToIsoString(message.value);
+                Server::instance().sendPatchMessage("/api/v1/pilots/" + message.callsign, atotPatch);
+                data[ConsolidatedData].atot = message.value;
+                data[EuroscopeData].atot = message.value;
+                messageType = "ATOT auto-recorded";
+            } break;
+            case MessageType::TriggerPush: {
+                Json::Value pushMessage;
+                const auto sendType = DataManager::deltaEuroscopeToBackend(data, pushMessage);
+                if (MessageType::Patch == sendType) {
+                    Server::instance().sendPatchMessage("/api/v1/pilots/" + message.callsign, pushMessage);
+                    messageType = "Immediate data sync";
+                } else {
+                    messageType = "Immediate sync (no changes)";
                 }
-                break;
-            case MessageType::TriggerPush:
-                {
-                    Json::Value pushMessage;
-                    const auto sendType = DataManager::deltaEuroscopeToBackend(data, pushMessage);
-                    if (MessageType::Patch == sendType) {
-                        Server::instance().sendPatchMessage("/api/v1/pilots/" + message.callsign, pushMessage);
-                        messageType = "Immediate data sync";
-                    } else {
-                        messageType = "Immediate sync (no changes)";
-                    }
-                }
-                break;
+            } break;
 
             default:
                 break;
@@ -372,9 +367,13 @@ void DataManager::handleTagFunction(MessageType type, const std::string callsign
                 pilot.tsac = "";
             } else {
                 char buf[10];
-                std::snprintf(buf, sizeof(buf), "%02d%02d", 
-                              (int)std::chrono::duration_cast<std::chrono::hours>(value.time_since_epoch() % std::chrono::hours(24)).count(),
-                              (int)std::chrono::duration_cast<std::chrono::minutes>(value.time_since_epoch() % std::chrono::hours(1)).count());
+                std::snprintf(buf, sizeof(buf), "%02d%02d",
+                              (int)std::chrono::duration_cast<std::chrono::hours>(value.time_since_epoch() %
+                                                                                  std::chrono::hours(24))
+                                  .count(),
+                              (int)std::chrono::duration_cast<std::chrono::minutes>(value.time_since_epoch() %
+                                                                                    std::chrono::hours(1))
+                                  .count());
                 pilot.tsac = buf;
             }
             break;
@@ -536,9 +535,10 @@ void DataManager::queueFlightplanUpdate(EuroScopePlugIn::CFlightPlan flightplan)
 
 void DataManager::prunePurgedCache(const std::set<std::string>& activeCallsigns) {
     std::lock_guard guard(this->m_euroscopeUpdatesLock);
-    for (auto it = m_backendPurgedCallsigns.begin(); it != m_backendPurgedCallsigns.end(); ) {
+    for (auto it = m_backendPurgedCallsigns.begin(); it != m_backendPurgedCallsigns.end();) {
         if (activeCallsigns.find(*it) == activeCallsigns.end()) {
-            Logger::instance().log(Logger::LogSender::DataManager, "Pruning " + *it + " from purged cache", Logger::LogLevel::Debug);
+            Logger::instance().log(Logger::LogSender::DataManager, "Pruning " + *it + " from purged cache",
+                                   Logger::LogLevel::Debug);
             it = m_backendPurgedCallsigns.erase(it);
         } else {
             ++it;
@@ -555,7 +555,8 @@ void DataManager::handleDisconnectedFlights(const std::set<std::string>& activeC
             {
                 std::lock_guard asyncGuard(this->m_asyncMessagesLock);
                 for (const auto& msg : this->m_asynchronousMessages) {
-                    if ((msg.type == MessageType::ResetPilot || msg.type == MessageType::RemoveLocalPilot) && msg.callsign == pair.first) {
+                    if ((msg.type == MessageType::ResetPilot || msg.type == MessageType::RemoveLocalPilot) &&
+                        msg.callsign == pair.first) {
                         alreadyQueued = true;
                         break;
                     }
@@ -564,7 +565,8 @@ void DataManager::handleDisconnectedFlights(const std::set<std::string>& activeC
                     Logger::instance().log(Logger::LogSender::DataManager,
                                            "Pilot disconnected, queueing local removal: " + pair.first,
                                            Logger::LogLevel::Info);
-                    this->m_asynchronousMessages.push_back({MessageType::RemoveLocalPilot, pair.first, std::chrono::utc_clock::now()});
+                    this->m_asynchronousMessages.push_back(
+                        {MessageType::RemoveLocalPilot, pair.first, std::chrono::utc_clock::now()});
                 }
             }
         }
@@ -592,7 +594,7 @@ void DataManager::consolidateWithBackend(std::map<std::string, std::array<types:
                 DataManager::consolidateData(pilot->second);
                 removeFlight = false;
                 foundInBackend = true;
-                
+
                 // Clear from purged cache if found again in backend
                 {
                     std::lock_guard guard(this->m_euroscopeUpdatesLock);
@@ -605,10 +607,10 @@ void DataManager::consolidateWithBackend(std::map<std::string, std::array<types:
         }
 
         if (backendFetchOk && !foundInBackend && !pilot->second[ServerData].callsign.empty()) {
-            Logger::instance().log(Logger::LogSender::DataManager,
-                                   "Removing " + pilot->second[EuroscopeData].callsign +
-                                       ": pilot disappeared from backend",
-                                   Logger::LogLevel::Info);
+            Logger::instance().log(
+                Logger::LogSender::DataManager,
+                "Removing " + pilot->second[EuroscopeData].callsign + ": pilot disappeared from backend",
+                Logger::LogLevel::Info);
             {
                 std::lock_guard guard(this->m_euroscopeUpdatesLock);
                 this->m_backendPurgedCallsigns.insert(pilot->second[EuroscopeData].callsign);
@@ -725,7 +727,7 @@ void DataManager::processEuroScopeUpdates(std::map<std::string, std::array<types
         // --- ASAT auto-recording (STUP / PUSH transition) ---
         if (updatedPilot.asat == types::defaultTime) {
             bool wasSTUPorPUSH = (prevGS == "STUP" || prevGS == "PUSH");
-            bool isSTUPorPUSH  = (newGS  == "STUP" || newGS  == "PUSH");
+            bool isSTUPorPUSH = (newGS == "STUP" || newGS == "PUSH");
             if (!wasSTUPorPUSH && isSTUPorPUSH) {
                 Logger::instance().log(Logger::LogSender::DataManager,
                                        "[" + pilot.callsign + "] Auto-recording ASAT on " + newGS,
@@ -740,7 +742,7 @@ void DataManager::processEuroScopeUpdates(std::map<std::string, std::array<types
         // --- AOBT auto-recording (PUSH / TAXI transition) ---
         if (updatedPilot.aobt == types::defaultTime) {
             bool wasPUSHorTAXI = (prevGS == "PUSH" || prevGS == "TAXI");
-            bool isPUSHorTAXI  = (newGS  == "PUSH" || newGS  == "TAXI");
+            bool isPUSHorTAXI = (newGS == "PUSH" || newGS == "TAXI");
             if (!wasPUSHorTAXI && isPUSHorTAXI) {
                 Logger::instance().log(Logger::LogSender::DataManager,
                                        "[" + pilot.callsign + "] Auto-recording AOBT on " + newGS,
@@ -755,7 +757,7 @@ void DataManager::processEuroScopeUpdates(std::map<std::string, std::array<types
         // --- ATOT auto-recording (TAKE OFF / DEPA transition) ---
         if (updatedPilot.atot == types::defaultTime) {
             bool wasTakeOff = (prevGS == "TAKE OFF" || prevGS == "DEPA");
-            bool isTakeOff  = (newGS  == "TAKE OFF" || newGS  == "DEPA");
+            bool isTakeOff = (newGS == "TAKE OFF" || newGS == "DEPA");
             if (!wasTakeOff && isTakeOff) {
                 Logger::instance().log(Logger::LogSender::DataManager,
                                        "[" + pilot.callsign + "] Auto-recording ATOT on " + newGS,
@@ -766,7 +768,6 @@ void DataManager::processEuroScopeUpdates(std::map<std::string, std::array<types
                 this->m_asynchronousMessages.push_back({MessageType::TriggerPush, pilot.callsign, now});
             }
         }
-
 
         if (it != pilots.end()) {
             it->second[EuroscopeData] = updatedPilot;
@@ -788,10 +789,10 @@ void DataManager::consolidateFlightplanUpdates(std::list<DataManager::EuroscopeF
             bool flightDepartsFromActiveAirport = std::find(m_activeAirports.begin(), m_activeAirports.end(),
                                                             std::string(pilot.origin)) != m_activeAirports.end();
             if (false == flightDepartsFromActiveAirport) {
-                Logger::instance().log(Logger::LogSender::DataManager,
-                                       "Ignoring " + pilot.callsign + ": origin " + pilot.origin +
-                                           " is not an active supported airport",
-                                       Logger::LogLevel::Debug);
+                Logger::instance().log(
+                    Logger::LogSender::DataManager,
+                    "Ignoring " + pilot.callsign + ": origin " + pilot.origin + " is not an active supported airport",
+                    Logger::LogLevel::Debug);
                 continue;
             }
         }
@@ -847,10 +848,10 @@ types::Pilot DataManager::CFlightPlanToPilot(const EuroScopePlugIn::CFlightPlan 
     // flightplan & clearance data
     const char* origin = flightplan.GetFlightPlanData().GetOrigin();
     pilot.origin = (origin != nullptr) ? origin : "";
-    
+
     const char* destination = flightplan.GetFlightPlanData().GetDestination();
     pilot.destination = (destination != nullptr) ? destination : "";
-    
+
     const char* runway = flightplan.GetFlightPlanData().GetDepartureRwy();
     pilot.runway = (runway != nullptr) ? runway : "";
 
