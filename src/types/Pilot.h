@@ -58,5 +58,6 @@ typedef struct Pilot_t {
     // event booking data
 
     bool hasBooking = false;
+    bool ready = false;
 } Pilot;
 }  // namespace vacdm::types

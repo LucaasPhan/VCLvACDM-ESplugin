@@ -110,6 +110,17 @@ class DataManager {
     std::list<struct AsynchronousMessage> m_asynchronousMessages;
     void processAsynchronousMessages(std::map<std::string, std::array<types::Pilot, 3U>> &pilots);
 
+    struct PendingUpdate {
+        MessageType type;
+        std::string callsign;
+        std::chrono::utc_clock::time_point recordedTime;
+        std::chrono::utc_clock::time_point triggerTime;
+        std::string groundState;
+    };
+    std::mutex m_pendingUpdatesLock;
+    std::list<PendingUpdate> m_pendingUpdates;
+    void processPendingUpdates(std::map<std::string, std::array<types::Pilot, 3U>> &pilots);
+
     struct EuroScopeAction {
         std::string callsign;
         std::string groundState;

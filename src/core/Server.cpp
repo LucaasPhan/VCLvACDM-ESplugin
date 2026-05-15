@@ -323,6 +323,7 @@ std::list<types::Pilot> Server::getPilots(const std::list<std::string> airports)
 
                     // event booking data
                     pilots.back().hasBooking = pilot["hasBooking"].asBool();
+                    pilots.back().ready = vacdm.get("ready", Json::Value(false)).asBool();
                 }
                 Logger::instance().log(Logger::LogSender::Server, "Pilots size: " + std::to_string(pilots.size()),
                                        Logger::LogLevel::Info);
