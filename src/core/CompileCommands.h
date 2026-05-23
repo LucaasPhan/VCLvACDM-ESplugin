@@ -98,6 +98,7 @@ bool vACDM::OnCompileCommand(const char *sCommandLine) {
             DisplayMessage("Releasing all ACDM MASTER claims");
             Logger::instance().log(Logger::LogSender::vACDM, "Releasing all MASTER claims", Logger::LogLevel::Info);
             com::Server::instance().releaseAllMasters(this->ControllerMyself().GetCallsign());
+            this->OnAirportRunwayActivityChanged();
             DisplayMessage("All ACDM MASTER claims released");
             return true;
         }
@@ -118,6 +119,7 @@ bool vACDM::OnCompileCommand(const char *sCommandLine) {
             DisplayMessage(err);
         } else {
             DisplayMessage("ACDM MASTER released for " + icao);
+            this->OnAirportRunwayActivityChanged();
         }
         return true;
     } else if (std::string::npos != command.find("RELOAD")) {
