@@ -23,5 +23,12 @@ struct PluginConfig {
     COLORREF grey = RGB(153, 153, 153);
     COLORREF white = RGB(255, 255, 255);
     COLORREF debug = RGB(255, 0, 255);
+    int panelX = 10;
+    int panelY = 50;
+    COLORREF panelColor = RGB(50, 50, 50);
+    COLORREF panelHeaderColor = RGB(60, 60, 60);
+    COLORREF panelColumnHeaderColor = RGB(45, 45, 45);
+    COLORREF panelTextColor = RGB(220, 220, 220);
+    bool showPanel = true;
 };
 }  // namespace vacdm

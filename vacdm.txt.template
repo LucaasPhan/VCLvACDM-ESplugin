@@ -17,3 +17,12 @@ COLOR_red=255,0,0
 COLOR_grey=153,153,153
 COLOR_white=255,255,255
 COLOR_debug=255,0,255
+
+# Status Panel Configuration
+PANEL_x=10
+PANEL_y=50
+PANEL_color=211,211,211
+PANEL_header_color=160,160,160
+PANEL_column_header_color=176,176,176
+PANEL_text_color=32,18,30
+PANEL_show=true

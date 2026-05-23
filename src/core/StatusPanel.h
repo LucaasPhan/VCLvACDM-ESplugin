@@ -4,6 +4,8 @@
 #include "EuroScopePlugIn.h"
 #pragma warning(pop)
 
+#include "config/PluginConfig.h"
+
 #include <algorithm>
 #include <cstring>
 #include <list>
@@ -16,7 +18,10 @@ namespace vacdm::core {
 
 class StatusPanel : public EuroScopePlugIn::CRadarScreen {
 public:
-    StatusPanel() : m_panelX(10), m_panelY(50), m_isDragging(false) {
+    static inline PluginConfig pluginConfig;
+    static void updatePluginConfig(PluginConfig newPluginConfig) { pluginConfig = newPluginConfig; }
+
+    StatusPanel() : m_panelX(pluginConfig.panelX), m_panelY(pluginConfig.panelY), m_isDragging(false) {
         m_dragOffset.x = 0;
         m_dragOffset.y = 0;
     }
@@ -25,6 +30,11 @@ public:
 
     void OnButtonDownScreenObject(int /*ObjectType*/, const char* sObjectId, POINT pt, RECT /*Area*/, int nButton) override {
         if (nButton != 1) return;
+        if (strcmp(sObjectId, "StatusPanelClose") == 0) {
+            pluginConfig.showPanel = false;
+            this->RequestRefresh();
+            return;
+        }
         if (strcmp(sObjectId, "StatusPanel") == 0) {
             m_isDragging = true;
             m_dragOffset.x = pt.x - m_panelX;
@@ -51,6 +61,7 @@ public:
 
     void OnRefresh(HDC hDC, int Phase) override {
         if (Phase != EuroScopePlugIn::REFRESH_PHASE_AFTER_LISTS) return;
+        if (!pluginConfig.showPanel) return;
 
         auto activeAirports = DataManager::instance().getActiveAirports();
         auto masters = com::Server::instance().getMasterAirports();
@@ -87,24 +98,44 @@ public:
 
         // --- Background ---
         RECT panelRect = { x, y, x + PANEL_W, y + PANEL_H };
-        HBRUSH bgBrush = CreateSolidBrush(RGB(50, 50, 50));
+        HBRUSH bgBrush = CreateSolidBrush(pluginConfig.panelColor);
         FillRect(hDC, &panelRect, bgBrush);
         DeleteObject(bgBrush);
 
+        // --- Title Background ---
+        RECT titleBgRect = { x, y, x + PANEL_W, y + TITLE_H };
+        HBRUSH titleBrush = CreateSolidBrush(pluginConfig.panelHeaderColor);
+        FillRect(hDC, &titleBgRect, titleBrush);
+        DeleteObject(titleBrush);
+
+        // --- Column Header Background ---
+        RECT colHeaderRect = { x, y + TITLE_H, x + PANEL_W, y + TITLE_H + HEADER_H };
+        HBRUSH colHeaderBrush = CreateSolidBrush(pluginConfig.panelColumnHeaderColor);
+        FillRect(hDC, &colHeaderRect, colHeaderBrush);
+        DeleteObject(colHeaderBrush);
+
         // Border
-        HBRUSH borderBrush = CreateSolidBrush(RGB(110, 110, 110));
+        HBRUSH borderBrush = CreateSolidBrush(RGB(32, 32, 32));
         FrameRect(hDC, &panelRect, borderBrush);
         DeleteObject(borderBrush);
 
         SetBkMode(hDC, TRANSPARENT);
 
         // Register title bar for dragging
-        RECT titleRect = { x, y, x + PANEL_W, y + TITLE_H };
+        RECT titleRect = { x, y, x + PANEL_W - 16, y + TITLE_H };
         this->AddScreenObject(1000, "StatusPanel", titleRect, true, "");
 
+        // Register close button
+        RECT closeRect = { x + PANEL_W - 16, y, x + PANEL_W, y + TITLE_H };
+        this->AddScreenObject(1001, "StatusPanelClose", closeRect, false, "");
+
         // --- Title ---
-        SetTextColor(hDC, RGB(220, 220, 220));
+        SetTextColor(hDC, pluginConfig.panelTextColor);
         TextOutA(hDC, x + COL_ICAO, y + 2, "ACDM STATUS", 12);
+
+        // --- Close Button ---
+        SetTextColor(hDC, pluginConfig.panelTextColor);
+        TextOutA(hDC, x + PANEL_W - 12, y + 2, "X", 1);
 
         // Divider under title
         HPEN divPen = CreatePen(PS_SOLID, 1, RGB(110, 110, 110));
@@ -114,7 +145,7 @@ public:
         y += TITLE_H;
 
         // --- Column headers ---
-        SetTextColor(hDC, RGB(180, 180, 180));
+        SetTextColor(hDC, pluginConfig.panelTextColor);
         TextOutA(hDC, x + COL_ICAO, y + 2, "ICAO", 4);
         TextOutA(hDC, x + COL_ROLE, y + 2, "POS", 4);
 
@@ -128,7 +159,7 @@ public:
 
         // --- Rows ---
         if (displayAirports.empty()) {
-            SetTextColor(hDC, RGB(160, 160, 160));
+            SetTextColor(hDC, pluginConfig.panelTextColor);
             const char* text = "NO ACTIVE AIRPORT";
             TextOutA(hDC, x + COL_ICAO, y + 2, text, static_cast<int>(strlen(text)));
             return;
@@ -145,7 +176,7 @@ public:
             DeleteObject(rowBrush);
 
             // ICAO label
-            SetTextColor(hDC, RGB(200, 200, 200));
+            SetTextColor(hDC, pluginConfig.panelTextColor);
             std::string icaoText = icao;
             if (meta.lvo) icaoText += " (LVO)";
             TextOutA(hDC, x + COL_ICAO, y + 2, icaoText.c_str(), static_cast<int>(icaoText.length()));

@@ -270,6 +270,10 @@ bool vACDM::OnCompileCommand(const char *sCommandLine) {
         com::Server::instance().probeParkingStand(callsign, lat, lon);
         DisplayMessage("Re-activation probe sent for " + callsign);
         return true;
+    } else if (std::string::npos != command.find("PANEL")) {
+        vacdm::core::StatusPanel::pluginConfig.showPanel = true;
+        DisplayMessage("ACDM Panel is now visible");
+        return true;
     }
     return false;
 }

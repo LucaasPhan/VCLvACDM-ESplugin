@@ -124,6 +124,7 @@ void vACDM::reloadConfiguration(bool initialLoading) {
 
         this->m_pluginConfig = newConfig;
         tagitems::Color::updatePluginConfig(newConfig);
+        core::StatusPanel::updatePluginConfig(newConfig);
     }
 }
 

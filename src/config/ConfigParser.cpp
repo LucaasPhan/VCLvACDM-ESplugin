@@ -105,6 +105,23 @@ bool ConfigParser::parse(const std::string &filename, PluginConfig &config) {
             parsed = this->parseColor(values[1], config.white, lineOffset);
         } else if ("COLOR_debug" == values[0]) {
             parsed = this->parseColor(values[1], config.debug, lineOffset);
+        } else if ("PANEL_x" == values[0]) {
+            config.panelX = std::stoi(values[1]);
+            parsed = true;
+        } else if ("PANEL_y" == values[0]) {
+            config.panelY = std::stoi(values[1]);
+            parsed = true;
+        } else if ("PANEL_color" == values[0]) {
+            parsed = this->parseColor(values[1], config.panelColor, lineOffset);
+        } else if ("PANEL_header_color" == values[0]) {
+            parsed = this->parseColor(values[1], config.panelHeaderColor, lineOffset);
+        } else if ("PANEL_column_header_color" == values[0]) {
+            parsed = this->parseColor(values[1], config.panelColumnHeaderColor, lineOffset);
+        } else if ("PANEL_text_color" == values[0]) {
+            parsed = this->parseColor(values[1], config.panelTextColor, lineOffset);
+        } else if ("PANEL_show" == values[0]) {
+            config.showPanel = (values[1] == "true" || values[1] == "1");
+            parsed = true;
         } else {
             this->m_errorLine = lineOffset;
             this->m_errorMessage = "Unknown file entry: " + value[0];

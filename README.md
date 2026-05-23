@@ -19,6 +19,7 @@ All commands use the `.acdm` prefix.
 - `.acdm master <ICAO>` — Claim mastership for an airport. Only the Master can push updates. **Currently restricted to VVTS and VVNB.**
 - `.acdm slave` — Release all local mastership claims.
 - `.acdm slave <ICAO>` — Release mastership for a specific airport.
+- `.acdm panel` — Reopen the ACDM Status Panel if it was closed.
 - `.acdm reload` — Reload settings from `vacdm.txt` without restarting EuroScope.
 - `.acdm debug on|off` — Toggle Debug Mode (allows polling and commands while disconnected).
 
