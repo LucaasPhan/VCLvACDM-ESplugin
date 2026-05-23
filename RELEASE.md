@@ -1,5 +1,15 @@
 # RELEASE.md — VCLvACDM Plugin Changelog
 
+## [1.3.0rc2] — 2026-05-24
+### Added
+- **Configurable Status Panel**: You can now configure the status panel's position, colors, and visibility directly in `vacdm.txt`.
+- **Core Modules Refactoring**: Refactored command handlers and data management into dedicated core modules for improved maintainability.
+
+### Fixed
+- **Master Claims Update**: Fixed an issue where releasing ACDM master claims did not trigger an immediate runway activity update.
+
+---
+
 ## [1.3.0rc1] — 2026-05-13
 ### Added
 - **Instant Synchronization**: Any ACDM status change in the radar tag now triggers an immediate data push to the server, eliminating the 5-second background sync delay for critical updates.

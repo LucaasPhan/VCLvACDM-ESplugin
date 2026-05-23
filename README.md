@@ -39,6 +39,13 @@ All commands use the `.acdm` prefix.
 - `.acdm log on|off|debug` — Toggle plugin logging.
 - `.acdm loglevel <sender> <level>` — Set logging level per module.
 
+## Status Panel Configuration
+The vACDM status panel aesthetics and default behavior can be customized via the `vacdm.txt` configuration file. Available properties:
+- `PANEL_x`, `PANEL_y`: Initial screen position.
+- `PANEL_color`, `PANEL_header_color`, `PANEL_column_header_color`: Panel aesthetics (RGB, comma-separated).
+- `PANEL_text_color`: Panel text color (RGB, comma-separated).
+- `PANEL_show`: `true` or `false` to set whether the panel should be visible on startup.
+
 ## Vietnam-specific behavior
 
 - New startup list items: `CTOT`, `FLT TYPE`, `GND HDL`, `EXEMPT`, `STATUS`
