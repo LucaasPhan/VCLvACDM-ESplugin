@@ -38,6 +38,7 @@ enum itemFunction {
     RESET_AOBT_AND_STATE,
     RESET_MENU,
     RESET_PILOT,
+    ARDT_NOW,
     TSAC_NOW,
     TSAC_MANUAL,
     TSAC_MANUAL_EDIT,
@@ -46,10 +47,36 @@ enum itemFunction {
 };
 
 void vACDM::RegisterTagItemFuntions() {
-    // Tag functions disabled to prevent conflict with GroundRadar plugin
+    RegisterTagItemFunction("Set ARDT", itemFunction::ARDT_NOW);
 }
 
-void vACDM::OnFunctionCall(int /*functionId*/, const char * /*itemString*/, POINT /*pt*/, RECT /*area*/) {
-    // Tag functions disabled to prevent conflict with GroundRadar plugin
+void vACDM::OnFunctionCall(int functionId, const char * /*itemString*/, POINT /*pt*/, RECT /*area*/) {
+    if (functionId != itemFunction::ARDT_NOW) return;
+
+    auto flightplan = FlightPlanSelectASEL();
+    if (!flightplan.IsValid()) {
+        DisplayMessage("Unable to record ARDT: no selected aircraft.", "ARDT");
+        return;
+    }
+
+    const std::string callsign = flightplan.GetCallsign();
+    if (false == DataManager::instance().checkPilotExists(callsign)) {
+        DisplayMessage("Unable to record ARDT: " + callsign + " is not tracked by VCLvACDM.", "ARDT");
+        return;
+    }
+
+    const auto pilot = DataManager::instance().getPilot(callsign);
+    if (pilot.ardt != types::defaultTime) {
+        DisplayMessage("ARDT already set for " + callsign + ".", "ARDT");
+        return;
+    }
+    if (!Server::instance().isMaster(pilot.origin)) {
+        DisplayMessage("Unable to record ARDT: not master for " + pilot.origin + ".", "ARDT");
+        return;
+    }
+
+    DataManager::instance().handleTagFunction(DataManager::MessageType::UpdateARDT, callsign,
+                                              std::chrono::utc_clock::now());
+    DisplayMessage("ARDT recorded for " + callsign + ".", "ARDT");
 }
 }  // namespace vacdm

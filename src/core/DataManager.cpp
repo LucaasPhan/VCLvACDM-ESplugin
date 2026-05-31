@@ -160,6 +160,14 @@ void DataManager::processAsynchronousMessages(std::map<std::string, std::array<t
                 data[EuroscopeData].asat = message.value;
                 messageType = "ASAT";
                 break;
+            case MessageType::UpdateARDT:
+                Server::instance().updateArdt(message.callsign, message.value);
+                data[ConsolidatedData].ardt = message.value;
+                data[EuroscopeData].ardt = message.value;
+                data[ConsolidatedData].ready = true;
+                data[EuroscopeData].ready = true;
+                messageType = "ARDT";
+                break;
             case MessageType::UpdateASRT:
                 Server::instance().updateAsrt(message.callsign, message.value);
                 messageType = "ASRT";
@@ -306,6 +314,10 @@ void DataManager::handleTagFunction(MessageType type, const std::string callsign
         }
         case MessageType::UpdateASAT:
             pilot.asat = value;
+            break;
+        case MessageType::UpdateARDT:
+            pilot.ardt = value;
+            pilot.ready = true;
             break;
         case MessageType::UpdateASRT:
             pilot.asrt = value;

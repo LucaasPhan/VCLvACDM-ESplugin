@@ -48,6 +48,7 @@ class DataManager {
         UpdateTOBT,
         UpdateTOBTConfirmed,
         UpdateASAT,
+        UpdateARDT,
         UpdateASRT,
         UpdateAOBT,
         UpdateAORT,

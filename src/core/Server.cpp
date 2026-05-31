@@ -539,6 +539,16 @@ void Server::updateAsat(const std::string& callsign, const std::chrono::utc_cloc
     this->sendPatchMessage("/api/v1/pilots/" + callsign, root);
 }
 
+void Server::updateArdt(const std::string& callsign, const std::chrono::utc_clock::time_point& ardt) {
+    Json::Value root;
+
+    root["callsign"] = callsign;
+    root["vacdm"] = Json::Value();
+    root["vacdm"]["ardt"] = utils::Date::timestampToIsoString(ardt);
+
+    this->sendPatchMessage("/api/v1/pilots/" + callsign, root);
+}
+
 void Server::updateAsrt(const std::string& callsign, const std::chrono::utc_clock::time_point& asrt) {
     Json::Value root;
 

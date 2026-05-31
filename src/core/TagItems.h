@@ -20,6 +20,7 @@ enum itemType {
     TTOT,
     EXOT,
     ASAT,
+    ARDT,
     AOBT,
     ATOT,
     ASRT,
@@ -42,6 +43,7 @@ void vACDM::RegisterTagItemTypes() {
     RegisterTagItemType("TTOT", itemType::TTOT);
     RegisterTagItemType("EXOT", itemType::EXOT);
     RegisterTagItemType("ASAT", itemType::ASAT);
+    RegisterTagItemType("ARDT", itemType::ARDT);
     RegisterTagItemType("AOBT", itemType::AOBT);
     RegisterTagItemType("ATOT", itemType::ATOT);
     RegisterTagItemType("ASRT", itemType::ASRT);
@@ -146,6 +148,10 @@ void vACDM::OnGetTagItem(EuroScopePlugIn::CFlightPlan FlightPlan, EuroScopePlugI
         case itemType::ASAT:
             outputText << formatTime(pilot.asat);
             *pRGB = Color::colorizeAsat(pilot);
+            break;
+        case itemType::ARDT:
+            outputText << formatTime(pilot.ardt);
+            *pRGB = (pilot.ardt == types::defaultTime) ? Color::pluginConfig.grey : Color::pluginConfig.darkgreen;
             break;
         case itemType::AOBT:
             outputText << formatTime(pilot.aobt);
