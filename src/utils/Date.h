@@ -55,11 +55,19 @@ class Date {
     /// @param timestamp ISO-formatted string representing the timestamp.
     /// @return std::chrono::utc_clock::time_point representing the converted timestamp.
     static std::chrono::utc_clock::time_point isoStringToTimestamp(const std::string &timestamp) {
-        std::chrono::utc_clock::time_point retval;
+        const auto defaultTime = std::chrono::utc_clock::time_point(std::chrono::milliseconds(-1));
+        if (timestamp.empty() || timestamp == "null") {
+            return defaultTime;
+        }
+
+        std::chrono::utc_clock::time_point retval = defaultTime;
         std::stringstream stream;
 
         stream << timestamp.substr(0, timestamp.length() - 1);
         std::chrono::from_stream(stream, "%FT%T", retval);
+        if (stream.fail()) {
+            return defaultTime;
+        }
 
         return retval;
     }
