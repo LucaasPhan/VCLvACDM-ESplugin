@@ -28,7 +28,7 @@ class Color {
         }
         const auto timeSinceTsat =
             std::chrono::duration_cast<std::chrono::seconds>(std::chrono::utc_clock::now() - pilot.tsat).count();
-        if (timeSinceTsat <= 5 * 60 && timeSinceTsat >= -5 * 60) {
+        if (timeSinceTsat <= 6 * 60 && timeSinceTsat >= -5 * 60) {
             // CTOT exists
             if (pilot.ctot.time_since_epoch().count() > 0) {
                 return pluginConfig.blue;
@@ -43,13 +43,9 @@ class Color {
             }
             return pluginConfig.lightgreen;
         }
-        // TSAT passed by 5+ min
-        if (timeSinceTsat > 5 * 60) {
-            // CTOT exists
-            if (pilot.ctot.time_since_epoch().count() > 0) {
-                return pluginConfig.red;
-            }
-            return pluginConfig.orange;
+        // TSAT passed by more than 6 min
+        if (timeSinceTsat > 6 * 60) {
+            return pluginConfig.red;
         }
         return pluginConfig.debug;
     }
