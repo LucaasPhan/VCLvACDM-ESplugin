@@ -717,10 +717,12 @@ void DataManager::processEuroScopeUpdates(std::map<std::string, std::array<types
 
             updatedPilot = pilot;
 
-            // Carry over already-recorded ASAT/AOBT/ATOT so they are never reset
-            if (prevES.asat != types::defaultTime) updatedPilot.asat = prevES.asat;
-            if (prevES.aobt != types::defaultTime) updatedPilot.aobt = prevES.aobt;
-            if (prevES.atot != types::defaultTime) updatedPilot.atot = prevES.atot;
+            // Carry over locally recorded milestones until the backend confirms
+            // or clears them. EuroScope flight-plan updates do not contain these.
+            const auto& prevConsolidated = it->second[ConsolidatedData];
+            if (prevConsolidated.asat != types::defaultTime) updatedPilot.asat = prevConsolidated.asat;
+            if (prevConsolidated.aobt != types::defaultTime) updatedPilot.aobt = prevConsolidated.aobt;
+            if (prevConsolidated.atot != types::defaultTime) updatedPilot.atot = prevConsolidated.atot;
         } else {
             // Pilot not found, add a new entry
             Logger::instance().log(Logger::LogSender::DataManager,

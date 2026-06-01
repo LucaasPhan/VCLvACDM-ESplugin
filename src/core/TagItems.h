@@ -208,8 +208,11 @@ void vACDM::OnGetTagItem(EuroScopePlugIn::CFlightPlan FlightPlan, EuroScopePlugI
             *pRGB = Color::pluginConfig.darkgreen;
             break;
         case itemType::STATUS:
-            if (pilot.aobt != types::defaultTime) {
+            if (pilot.atot != types::defaultTime) {
                 outputText << "DEPARTED";
+                *pRGB = Color::pluginConfig.darkgreen;
+            } else if (pilot.aobt != types::defaultTime) {
+                outputText << "TAXI";
                 *pRGB = Color::pluginConfig.darkgreen;
             } else if (pilot.asat != types::defaultTime) {
                 outputText << "STARTUP APPROVED";
