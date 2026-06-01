@@ -70,11 +70,11 @@ void DataManager::run() {
 
         this->processAsynchronousMessages(pilots);
 
+        this->consolidateWithBackend(pilots);
+
         this->processEuroScopeUpdates(pilots);
 
         this->processPendingUpdates(pilots);
-
-        this->consolidateWithBackend(pilots);
 
         std::list<std::tuple<types::Pilot, DataManager::MessageType, Json::Value>> transmissionBuffer;
         for (auto& pilot : pilots) {
@@ -170,6 +170,8 @@ void DataManager::processAsynchronousMessages(std::map<std::string, std::array<t
                 break;
             case MessageType::UpdateASRT:
                 Server::instance().updateAsrt(message.callsign, message.value);
+                data[ConsolidatedData].asrt = message.value;
+                data[EuroscopeData].asrt = message.value;
                 messageType = "ASRT";
                 break;
             case MessageType::UpdateAOBT:
@@ -699,6 +701,16 @@ void DataManager::processEuroScopeUpdates(std::map<std::string, std::array<types
 
     for (auto& update : flightplanUpdates) {
         const auto& pilot = update.data;
+        {
+            std::lock_guard guard(this->m_euroscopeUpdatesLock);
+            if (this->m_backendPurgedCallsigns.find(pilot.callsign) != this->m_backendPurgedCallsigns.end()) {
+                Logger::instance().log(Logger::LogSender::DataManager,
+                                       "Dropping queued update for " + pilot.callsign +
+                                           ": pilot was purged from backend",
+                                       Logger::LogLevel::Debug);
+                continue;
+            }
+        }
 
         const std::string newGS = pilot.groundState;
         const auto now = std::chrono::utc_clock::now();
