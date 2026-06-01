@@ -1,5 +1,6 @@
 #include "Server.h"
 
+#include <algorithm>
 #include <cctype>
 #include <numeric>
 
@@ -100,7 +101,11 @@ void Server::setCid(const std::string& cid) {
     headers = curl_slist_append(headers, "Accept: application/json");
     headers = curl_slist_append(headers, ("x-api-key: " + this->m_apiKey).c_str());
     if (!this->m_cid.empty()) {
-        headers = curl_slist_append(headers, ("x-vatsim-cid: " + this->m_cid).c_str());
+        const bool isNumericCid = std::all_of(this->m_cid.begin(), this->m_cid.end(),
+                                              [](unsigned char c) { return std::isdigit(c) != 0; });
+        headers = curl_slist_append(
+            headers,
+            ((isNumericCid ? "x-vatsim-cid: " : "x-vacdm-position: ") + this->m_cid).c_str());
     }
     headers = curl_slist_append(headers, "Content-Type: application/json");
 
