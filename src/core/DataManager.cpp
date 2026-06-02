@@ -50,16 +50,17 @@ void DataManager::run() {
         if (true == this->m_stop) return;
         if (true == this->m_pause) continue;
 
-        // run every updateCycleSeconds seconds
-        if (counter++ % updateCycleSeconds != 0) continue;
+        const auto elapsedSeconds = counter++;
 
-        // refresh airport metadata for all active airports
-        {
+        if (elapsedSeconds % metadataRefreshSeconds == 0) {
             std::lock_guard guard(this->m_airportLock);
             for (const auto& icao : m_activeAirports) {
                 com::Server::instance().refreshAirportMetadata(icao);
             }
         }
+
+        // run every updateCycleSeconds seconds
+        if (elapsedSeconds % updateCycleSeconds != 0) continue;
 
         // obtain a copy of the pilot data, work with the copy to minimize lock time
         std::map<std::string, std::array<vacdm::types::Pilot, 3U>> pilots;
@@ -510,6 +511,7 @@ void DataManager::setActiveAirports(const std::list<std::string> activeAirports)
 
     std::lock_guard guard(this->m_airportLock);
     this->m_activeAirports = supportedAirports;
+    com::Server::instance().resetPilotSyncRevision();
 
     // Clear purged cache on airport change
     {
@@ -597,7 +599,8 @@ void DataManager::handleDisconnectedFlights(const std::set<std::string>& activeC
 
 void DataManager::consolidateWithBackend(std::map<std::string, std::array<types::Pilot, 3U>>& pilots) {
     // retrieving backend data
-    auto backendPilots = Server::instance().getPilots(this->m_activeAirports);
+    auto backendSync = Server::instance().getPilotSync(this->m_activeAirports);
+    auto backendPilots = backendSync.pilots;
     const bool backendFetchOk = Server::instance().lastPilotFetchOk();
 
     for (auto pilot = pilots.begin(); pilots.end() != pilot;) {
@@ -606,14 +609,34 @@ void DataManager::consolidateWithBackend(std::map<std::string, std::array<types:
         // can still send updates; re-activation is handled by the backend.
         bool removeFlight = false;
         bool foundInBackend = false;
+        const std::string localCallsign = pilot->second[EuroscopeData].callsign.empty()
+                                              ? pilot->first
+                                              : pilot->second[EuroscopeData].callsign;
+
+        if (backendFetchOk && backendSync.deleted.find(localCallsign) != backendSync.deleted.end()) {
+            Logger::instance().log(Logger::LogSender::DataManager,
+                                   "Removing " + localCallsign + ": pilot deleted by backend delta sync",
+                                   Logger::LogLevel::Info);
+            {
+                std::lock_guard guard(this->m_euroscopeUpdatesLock);
+                this->m_backendPurgedCallsigns[localCallsign] = std::chrono::utc_clock::now();
+            }
+            removeFlight = true;
+        }
+
         for (auto updateIt = backendPilots.begin(); updateIt != backendPilots.end(); ++updateIt) {
-            if (updateIt->callsign == pilot->second[EuroscopeData].callsign) {
+            if (removeFlight) break;
+            if (updateIt->callsign == localCallsign) {
                 Logger::instance().log(
                     Logger::LogSender::DataManager,
-                    "Updating " + pilot->second[EuroscopeData].callsign + " with" + updateIt->callsign,
+                    "Updating " + localCallsign + " with" + updateIt->callsign,
                     Logger::LogLevel::Info);
                 pilot->second[ServerData] = *updateIt;
-                DataManager::consolidateData(pilot->second);
+                if (!pilot->second[EuroscopeData].callsign.empty()) {
+                    DataManager::consolidateData(pilot->second);
+                } else {
+                    pilot->second[ConsolidatedData] = *updateIt;
+                }
                 removeFlight = false;
                 foundInBackend = true;
 
@@ -628,14 +651,14 @@ void DataManager::consolidateWithBackend(std::map<std::string, std::array<types:
             }
         }
 
-        if (backendFetchOk && !foundInBackend && !pilot->second[ServerData].callsign.empty()) {
+        if (backendFetchOk && backendSync.full && !foundInBackend && !pilot->second[ServerData].callsign.empty()) {
             Logger::instance().log(
                 Logger::LogSender::DataManager,
-                "Removing " + pilot->second[EuroscopeData].callsign + ": pilot disappeared from backend",
+                "Removing " + localCallsign + ": pilot disappeared from backend full sync",
                 Logger::LogLevel::Info);
             {
                 std::lock_guard guard(this->m_euroscopeUpdatesLock);
-                this->m_backendPurgedCallsigns[pilot->second[EuroscopeData].callsign] = std::chrono::utc_clock::now();
+                this->m_backendPurgedCallsigns[localCallsign] = std::chrono::utc_clock::now();
             }
             removeFlight = true;
         }

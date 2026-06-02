@@ -21,6 +21,7 @@ using namespace vacdm;
 namespace vacdm::core {
 
 constexpr int updateCycleSeconds = 5;
+constexpr int metadataRefreshSeconds = 60;
 class DataManager {
    private:
     DataManager();

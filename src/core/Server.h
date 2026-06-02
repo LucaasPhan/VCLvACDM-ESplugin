@@ -9,6 +9,7 @@
 #include <string>
 #include <chrono>
 #include <set>
+#include <vector>
 
 #include "types/Pilot.h"
 
@@ -29,6 +30,14 @@ class Server {
         bool lvo = false;
         std::vector<std::string> activeDelays;
     } AirportMetadata;
+
+    typedef struct PilotSyncResult_t {
+        bool ok = false;
+        bool full = true;
+        std::string revision = "";
+        std::list<types::Pilot> pilots;
+        std::set<std::string> deleted;
+    } PilotSyncResult;
 
    private:
     Server();
@@ -54,6 +63,7 @@ class Server {
     std::set<std::string> m_masterAirports;
     std::set<std::string> m_supportedAirports;
     std::map<std::string, AirportMetadata> m_airportMetadata;
+    std::string m_pilotSyncRevision;
     std::string m_errorCode;
     ServerConfiguration m_serverConfiguration;
     mutable std::mutex m_stateLock;
@@ -76,6 +86,8 @@ class Server {
     bool lastPilotFetchOk() const;
     ServerConfiguration_t getServerConfig();
     std::list<types::Pilot> getPilots(const std::list<std::string> airports);
+    PilotSyncResult getPilotSync(const std::list<std::string> airports);
+    void resetPilotSyncRevision();
     void postPilot(types::Pilot);
     void patchPilot(const Json::Value& root);
     
