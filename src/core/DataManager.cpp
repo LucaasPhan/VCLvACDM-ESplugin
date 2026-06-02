@@ -448,6 +448,11 @@ DataManager::MessageType DataManager::deltaEuroscopeToBackend(const std::array<t
         }
         if (deltaCount == lastDelta) message.removeMember("flightplan");
 
+        if (data[EuroscopeData].route != data[ServerData].route) {
+            deltaCount += 1;
+            message["route"] = data[EuroscopeData].route;
+        }
+
         // patch clearance data
         lastDelta = deltaCount;
         message["clearance"] = Json::Value();
@@ -950,6 +955,9 @@ types::Pilot DataManager::CFlightPlanToPilot(const EuroScopePlugIn::CFlightPlan 
 
     const char* aircraft = flightplan.GetFlightPlanData().GetAircraftFPType();
     pilot.aircraft = (aircraft != nullptr) ? aircraft : "";
+
+    const char* route = flightplan.GetFlightPlanData().GetRoute();
+    pilot.route = (route != nullptr) ? route : "";
 
     const bool isDomestic = pilot.origin.rfind("VV", 0) == 0 && pilot.destination.rfind("VV", 0) == 0;
     pilot.flightType = isDomestic ? "DOMESTIC" : "INTERNATIONAL";

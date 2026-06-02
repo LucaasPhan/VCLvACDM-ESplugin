@@ -35,6 +35,7 @@ static vacdm::types::Pilot parsePilotJson(const Json::Value& pilot) {
     parsed.runway = pilot.isMember("runway") ? pilot["runway"].asString() : pilot["clearance"]["dep_rwy"].asString();
     parsed.sid = pilot.isMember("sid") ? pilot["sid"].asString() : pilot["clearance"]["sid"].asString();
     parsed.aircraft = pilot.get("aircraft", Json::Value("")).asString();
+    parsed.route = pilot.get("route", Json::Value("")).asString();
     parsed.flightType = pilot.get("flightType", Json::Value("")).asString();
     parsed.airline = pilot.get("airline", Json::Value("")).asString();
     parsed.exemptFromCdm = pilot.get("exemptFromCdm", Json::Value(false)).asBool();
@@ -515,6 +516,7 @@ void Server::postPilot(types::Pilot pilot) {
     root["runway"] = pilot.runway;
     root["taxizone"] = Json::Value::nullSingleton();
     root["aircraft"] = pilot.aircraft;
+    root["route"] = pilot.route;
     const bool isDomestic = pilot.origin.rfind("VV", 0) == 0 && pilot.destination.rfind("VV", 0) == 0;
     root["flightType"] = pilot.flightType.empty() ? (isDomestic ? "DOMESTIC" : "INTERNATIONAL") : pilot.flightType;
     root["airline"] = pilot.airline;

@@ -30,6 +30,7 @@ typedef struct Pilot_t {
     std::string runway;
     std::string sid;
     std::string aircraft;
+    std::string route;
     std::string flightType;
     std::string airline;
     std::string groundHandler;
