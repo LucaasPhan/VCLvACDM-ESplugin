@@ -429,6 +429,7 @@ void Server::postPilot(types::Pilot pilot) {
     root["exemptFromCdm"] = false;
     root["vacdm"] = Json::Value();
     root["vacdm"]["ground_state"] = pilot.groundState;
+    if (pilot.forceReactivate) root["vacdm"]["forceReactivate"] = true;
 
     this->sendPostMessage("/api/v1/pilots", root);
 }

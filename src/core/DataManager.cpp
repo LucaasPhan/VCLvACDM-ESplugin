@@ -79,6 +79,14 @@ void DataManager::run() {
         std::list<std::tuple<types::Pilot, DataManager::MessageType, Json::Value>> transmissionBuffer;
         for (auto& pilot : pilots) {
             const auto& consolidatedPilot = pilot.second[ConsolidatedData];
+            if (pilot.second[EuroscopeData].callsign.empty()) {
+                Logger::instance().log(
+                    Logger::LogSender::DataManager,
+                    "Skipping " + consolidatedPilot.callsign + ": waiting for matching EuroScope flight plan",
+                    Logger::LogLevel::Debug);
+                continue;
+            }
+
             if (!Server::instance().isMaster(consolidatedPilot.origin)) {
                 Logger::instance().log(
                     Logger::LogSender::DataManager,
@@ -89,7 +97,7 @@ void DataManager::run() {
 
             // For inactive aircraft: probe the dedicated parking endpoint so backend
             // can resolve the stand and re-activate if the pilot has spawned back.
-            if (pilot.second[ServerData].inactive) {
+            if (pilot.second[ServerData].inactive && !pilot.second[EuroscopeData].forceReactivate) {
                 const auto& es = pilot.second[EuroscopeData];
                 if (es.latitude != 0.0 || es.longitude != 0.0) {
                     Server::instance().probeParkingStand(es.callsign, es.latitude, es.longitude);
@@ -531,20 +539,27 @@ void DataManager::queueFlightplanUpdate(EuroScopePlugIn::CFlightPlan flightplan)
     auto pilot = this->CFlightPlanToPilot(flightplan);
 
     std::lock_guard guard(this->m_euroscopeUpdatesLock);
-    if (this->m_backendPurgedCallsigns.find(pilot.callsign) != this->m_backendPurgedCallsigns.end()) {
-        Logger::instance().log(Logger::LogSender::DataManager,
-                               "Ignoring " + pilot.callsign + ": pilot was purged from backend",
-                               Logger::LogLevel::Debug);
+    this->m_euroscopeFlightplanUpdates.push_back({std::chrono::utc_clock::now(), pilot});
+}
+
+void DataManager::forceFlightplanUpdate(EuroScopePlugIn::CFlightPlan flightplan) {
+    if (false == flightplan.IsValid() || nullptr == flightplan.GetFlightPlanData().GetPlanType() ||
+        nullptr == flightplan.GetFlightPlanData().GetOrigin())
         return;
-    }
+
+    auto pilot = this->CFlightPlanToPilot(flightplan);
+    pilot.forceReactivate = true;
+
+    std::lock_guard guard(this->m_euroscopeUpdatesLock);
+    this->m_backendPurgedCallsigns.erase(pilot.callsign);
     this->m_euroscopeFlightplanUpdates.push_back({std::chrono::utc_clock::now(), pilot});
 }
 
 void DataManager::prunePurgedCache(const std::set<std::string>& activeCallsigns) {
     std::lock_guard guard(this->m_euroscopeUpdatesLock);
     for (auto it = m_backendPurgedCallsigns.begin(); it != m_backendPurgedCallsigns.end();) {
-        if (activeCallsigns.find(*it) == activeCallsigns.end()) {
-            Logger::instance().log(Logger::LogSender::DataManager, "Pruning " + *it + " from purged cache",
+        if (activeCallsigns.find(it->first) == activeCallsigns.end()) {
+            Logger::instance().log(Logger::LogSender::DataManager, "Pruning " + it->first + " from purged cache",
                                    Logger::LogLevel::Debug);
             it = m_backendPurgedCallsigns.erase(it);
         } else {
@@ -620,7 +635,7 @@ void DataManager::consolidateWithBackend(std::map<std::string, std::array<types:
                 Logger::LogLevel::Info);
             {
                 std::lock_guard guard(this->m_euroscopeUpdatesLock);
-                this->m_backendPurgedCallsigns.insert(pilot->second[EuroscopeData].callsign);
+                this->m_backendPurgedCallsigns[pilot->second[EuroscopeData].callsign] = std::chrono::utc_clock::now();
             }
             removeFlight = true;
         }
@@ -635,8 +650,18 @@ void DataManager::consolidateWithBackend(std::map<std::string, std::array<types:
 
     // handle remaining backendPilots (newly added or re-activated)
     for (const auto& backendPilot : backendPilots) {
-        std::lock_guard guard(this->m_euroscopeUpdatesLock);
-        this->m_backendPurgedCallsigns.erase(backendPilot.callsign);
+        {
+            std::lock_guard guard(this->m_euroscopeUpdatesLock);
+            this->m_backendPurgedCallsigns.erase(backendPilot.callsign);
+        }
+
+        if (pilots.find(backendPilot.callsign) == pilots.end()) {
+            pilots.insert({backendPilot.callsign, std::array<types::Pilot, 3U>{backendPilot, types::Pilot(), backendPilot}});
+            Logger::instance().log(Logger::LogSender::DataManager,
+                                   "Tracking backend-created strip " + backendPilot.callsign +
+                                       " while waiting for EuroScope flight plan",
+                                   Logger::LogLevel::Info);
+        }
     }
 }
 
@@ -701,15 +726,9 @@ void DataManager::processEuroScopeUpdates(std::map<std::string, std::array<types
 
     for (auto& update : flightplanUpdates) {
         const auto& pilot = update.data;
-        {
+        if (pilot.forceReactivate) {
             std::lock_guard guard(this->m_euroscopeUpdatesLock);
-            if (this->m_backendPurgedCallsigns.find(pilot.callsign) != this->m_backendPurgedCallsigns.end()) {
-                Logger::instance().log(Logger::LogSender::DataManager,
-                                       "Dropping queued update for " + pilot.callsign +
-                                           ": pilot was purged from backend",
-                                       Logger::LogLevel::Debug);
-                continue;
-            }
+            this->m_backendPurgedCallsigns.erase(pilot.callsign);
         }
 
         const std::string newGS = pilot.groundState;

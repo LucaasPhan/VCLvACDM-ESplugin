@@ -1,6 +1,7 @@
 #pragma once
 
 #include <list>
+#include <chrono>
 #include <map>
 #include <mutex>
 #include <set>
@@ -79,7 +80,7 @@ class DataManager {
 
     std::mutex m_euroscopeUpdatesLock;
     std::list<EuroscopeFlightplanUpdate> m_euroscopeFlightplanUpdates;
-    std::set<std::string> m_backendPurgedCallsigns;
+    std::map<std::string, std::chrono::utc_clock::time_point> m_backendPurgedCallsigns;
 
     /// @brief consolidates all flightplan updates by throwing out old updates and keeping the most current ones
     /// @param list of flightplans to consolidate
@@ -130,6 +131,7 @@ class DataManager {
     void setActiveAirports(const std::list<std::string> activeAirports);
     std::list<std::string> getActiveAirports();
     void queueFlightplanUpdate(EuroScopePlugIn::CFlightPlan flightplan);
+    void forceFlightplanUpdate(EuroScopePlugIn::CFlightPlan flightplan);
     void prunePurgedCache(const std::set<std::string> &activeCallsigns);
     void handleDisconnectedFlights(const std::set<std::string>& activeCallsigns);
     void handleTagFunction(MessageType message, const std::string callsign,

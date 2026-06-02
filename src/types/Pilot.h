@@ -15,6 +15,7 @@ typedef struct Pilot_t {
     std::chrono::utc_clock::time_point lastUpdate = defaultTime;
 
     bool inactive = false;
+    bool forceReactivate = false;
 
     // position data
 
