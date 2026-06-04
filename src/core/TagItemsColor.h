@@ -232,6 +232,8 @@ class Color {
 
 
     static COLORREF colorizeEventBooking(const types::Pilot &pilot) {
+        if (pilot.ctotStatus == "MISSED") return pluginConfig.red;
+        if (pilot.ctotStatus == "RISK") return pluginConfig.orange;
         return pilot.hasBooking ? pluginConfig.green : pluginConfig.grey;
     }
 
@@ -278,6 +280,12 @@ class Color {
     static COLORREF colorizeCtotandCtottimer(const types::Pilot &pilot) {
         if (pilot.ctot == types::defaultTime) {
             return pluginConfig.grey;
+        }
+        if (pilot.ctotStatus == "MISSED") {
+            return pluginConfig.red;
+        }
+        if (pilot.ctotStatus == "RISK") {
+            return pluginConfig.orange;
         }
 
         const auto timetoctot =

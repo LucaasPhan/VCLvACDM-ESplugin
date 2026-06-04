@@ -171,7 +171,7 @@ void vACDM::OnGetTagItem(EuroScopePlugIn::CFlightPlan FlightPlan, EuroScopePlugI
             break;
         case itemType::CTOT:
             outputText << formatTime(pilot.ctot);
-            *pRGB = (pilot.ctot == types::defaultTime) ? Color::pluginConfig.grey : Color::pluginConfig.orange;
+            *pRGB = Color::colorizeCtot(pilot);
             break;
         case itemType::FLTTYPE:
             outputText << (pilot.flightType == "DOMESTIC" ? "DOM" : "INT");
@@ -211,6 +211,12 @@ void vACDM::OnGetTagItem(EuroScopePlugIn::CFlightPlan FlightPlan, EuroScopePlugI
             if (pilot.atot != types::defaultTime) {
                 outputText << "DEPARTED";
                 *pRGB = Color::pluginConfig.darkgreen;
+            } else if (pilot.ctotStatus == "MISSED") {
+                outputText << "SLOT MISSED";
+                *pRGB = Color::pluginConfig.red;
+            } else if (pilot.ctotStatus == "RISK") {
+                outputText << "CTOT RISK";
+                *pRGB = Color::pluginConfig.orange;
             } else if (pilot.aobt != types::defaultTime) {
                 outputText << "TAXI";
                 *pRGB = Color::pluginConfig.darkgreen;

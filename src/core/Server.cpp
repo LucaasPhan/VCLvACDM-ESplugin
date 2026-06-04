@@ -65,6 +65,7 @@ static vacdm::types::Pilot parsePilotJson(const Json::Value& pilot) {
     parsed.tobtSetBy = pilot.get("tobtSetBy", Json::Value("")).asString();
     parsed.tsatReset = pilot.get("tsatReset", Json::Value(false)).asBool();
     parsed.hasBooking = pilot["hasBooking"].asBool();
+    parsed.ctotStatus = pilot.get("eventCtotStatus", vacdmJson.get("ctotStatus", Json::Value(""))).asString();
     parsed.ready = vacdmJson.get("ready", Json::Value(false)).asBool();
 
     return parsed;
