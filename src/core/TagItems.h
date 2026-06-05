@@ -214,31 +214,31 @@ void vACDM::OnGetTagItem(EuroScopePlugIn::CFlightPlan FlightPlan, EuroScopePlugI
             break;
         case itemType::STATUS:
             if (pilot.atot != types::defaultTime) {
-                outputText << "DEPARTED";
+                outputText << "DEPA";
                 *pRGB = Color::pluginConfig.darkgreen;
             } else if (pilot.ctotStatus == "MISSED") {
-                outputText << "SLOT MISSED";
+                outputText << "MISSED";
                 *pRGB = Color::pluginConfig.red;
             } else if (pilot.ctotStatus == "RISK") {
-                outputText << "CTOT RISK";
+                outputText << "RISK";
                 *pRGB = Color::pluginConfig.orange;
             } else if (pilot.aobt != types::defaultTime) {
                 outputText << "TAXI";
                 *pRGB = Color::pluginConfig.darkgreen;
             } else if (pilot.asat != types::defaultTime) {
-                outputText << "STARTUP APPROVED";
+                outputText << "STUP APPR";
                 *pRGB = Color::pluginConfig.darkgreen;
             } else if (pilot.asrt != types::defaultTime) {
-                outputText << "REQ STARTUP";
+                outputText << "REQ STUP";
                 *pRGB = Color::pluginConfig.darkgreen;
             } else if (pilot.ready) {
-                outputText << "READY";
+                outputText << "RDY";
                 *pRGB = Color::pluginConfig.darkgreen;
             } else if (pilot.tsat != types::defaultTime) {
-                outputText << "SEQUENCED";
+                outputText << "SEQ";
                 *pRGB = Color::pluginConfig.darkgreen;
             } else if (pilot.tobt != types::defaultTime) {
-                outputText << "TOBT SET";
+                outputText << "TOBT";
                 *pRGB = Color::pluginConfig.darkgreen;
             } else if (pilot.ctot != types::defaultTime) {
                 outputText << "CTOT";
