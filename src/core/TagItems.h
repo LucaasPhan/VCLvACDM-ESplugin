@@ -3,6 +3,7 @@
 #include <wtypes.h>
 
 #include <chrono>
+#include <cstdio>
 #include <format>
 #include <string>
 
@@ -66,6 +67,10 @@ std::string formatTime(const std::chrono::utc_clock::time_point timepoint) {
         return "";
 }
 
+void copyTagItemString(char sItemString[16], const std::string& value) {
+    std::snprintf(sItemString, 16, "%s", value.c_str());
+}
+
 void vACDM::OnGetTagItem(EuroScopePlugIn::CFlightPlan FlightPlan, EuroScopePlugIn::CRadarTarget RadarTarget,
                          int ItemCode, int TagData, char sItemString[16], int *pColorCode, COLORREF *pRGB,
                          double *pFontSize) {
@@ -75,7 +80,7 @@ void vACDM::OnGetTagItem(EuroScopePlugIn::CFlightPlan FlightPlan, EuroScopePlugI
     std::ignore = pFontSize;
 
     *pColorCode = EuroScopePlugIn::TAG_COLOR_RGB_DEFINED;
-    if (nullptr == FlightPlan.GetFlightPlanData().GetPlanType() ||
+    if (!FlightPlan.IsValid() || nullptr == FlightPlan.GetFlightPlanData().GetPlanType() ||
         0 == std::strlen(FlightPlan.GetFlightPlanData().GetPlanType()))
         return;
     // skip non IFR flights
@@ -95,7 +100,7 @@ void vACDM::OnGetTagItem(EuroScopePlugIn::CFlightPlan FlightPlan, EuroScopePlugI
                    ItemCode == static_cast<int>(itemType::TTOT) || ItemCode == static_cast<int>(itemType::CTOT))) {
         outputText << "----";
         *pRGB = Color::pluginConfig.grey;
-        std::strcpy(sItemString, outputText.str().c_str());
+        copyTagItemString(sItemString, outputText.str());
         return;
     }
 
@@ -250,6 +255,6 @@ void vACDM::OnGetTagItem(EuroScopePlugIn::CFlightPlan FlightPlan, EuroScopePlugI
             break;
     }
 
-    std::strcpy(sItemString, outputText.str().c_str());
+    copyTagItemString(sItemString, outputText.str());
 }
 }  // namespace vacdm
