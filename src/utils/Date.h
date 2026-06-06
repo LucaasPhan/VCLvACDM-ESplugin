@@ -63,7 +63,17 @@ class Date {
         std::chrono::utc_clock::time_point retval = defaultTime;
         std::stringstream stream;
 
-        stream << timestamp.substr(0, timestamp.length() - 1);
+        std::string normalized = timestamp;
+        if (!normalized.empty() && (normalized.back() == 'Z' || normalized.back() == 'z')) {
+            normalized.pop_back();
+        }
+
+        const auto fractionalSeparator = normalized.find('.');
+        if (fractionalSeparator != std::string::npos) {
+            normalized.erase(fractionalSeparator);
+        }
+
+        stream << normalized;
         std::chrono::from_stream(stream, "%FT%T", retval);
         if (stream.fail()) {
             return defaultTime;

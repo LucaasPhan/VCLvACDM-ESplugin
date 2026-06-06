@@ -2,6 +2,7 @@ IF(BUILD_TESTING)
     FIND_PACKAGE(GTest REQUIRED)
 
     ADD_EXECUTABLE(tests
+        utils/test_DateUtils.cpp
         utils/test_StringUtils.cpp
         test_main.cpp
     )
