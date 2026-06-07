@@ -76,6 +76,8 @@ void vACDM::runEuroscopeUpdate() {
         // Stop tracking departures once they are airborne and have climbed above 2500ft
         auto target = flightplan.GetCorrelatedRadarTarget();
         if (target.IsValid() && target.GetPosition().GetPressureAltitude() > 2500) {
+            DataManager::instance().handleTagFunction(DataManager::MessageType::UpdateATOT, flightplan.GetCallsign(),
+                                                      std::chrono::utc_clock::now());
             continue;
         }
 
@@ -83,7 +85,7 @@ void vACDM::runEuroscopeUpdate() {
         DataManager::instance().queueFlightplanUpdate(flightplan);
     }
     DataManager::instance().handleDisconnectedFlights(activeCallsigns);
-    DataManager::instance().prunePurgedCache(activeCallsigns);
+    DataManager::instance().prunePurgedCache();
 }
 
 void vACDM::SetGroundState(const EuroScopePlugIn::CFlightPlan flightplan, const std::string groundstate) {

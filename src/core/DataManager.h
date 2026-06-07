@@ -133,7 +133,7 @@ class DataManager {
     std::list<std::string> getActiveAirports();
     void queueFlightplanUpdate(EuroScopePlugIn::CFlightPlan flightplan);
     void forceFlightplanUpdate(EuroScopePlugIn::CFlightPlan flightplan);
-    void prunePurgedCache(const std::set<std::string> &activeCallsigns);
+    void prunePurgedCache();
     void handleDisconnectedFlights(const std::set<std::string>& activeCallsigns);
     void handleTagFunction(MessageType message, const std::string callsign,
                            const std::chrono::utc_clock::time_point value);

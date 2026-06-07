@@ -13,6 +13,13 @@ using namespace std::chrono_literals;
 static constexpr std::size_t ConsolidatedData = 0;
 static constexpr std::size_t EuroscopeData = 1;
 static constexpr std::size_t ServerData = 2;
+static constexpr auto BackendPurgedCallsignTtl = std::chrono::minutes(30);
+
+namespace {
+std::string inferFlightTypeFromRoute(const std::string& origin, const std::string& destination) {
+    return origin.rfind("VV", 0) == 0 && destination.rfind("VV", 0) == 0 ? "DOMESTIC" : "INTERNATIONAL";
+}
+}  // namespace
 
 DataManager::DataManager() : m_pause(false), m_stop(false) { this->m_worker = std::thread(&DataManager::run, this); }
 
@@ -149,6 +156,16 @@ void DataManager::processAsynchronousMessages(std::map<std::string, std::array<t
         auto& [callsign, data] = *pilot;
 
         std::string messageType;
+        const auto& messageOrigin = data[ConsolidatedData].origin.empty()
+                                        ? data[EuroscopeData].origin
+                                        : data[ConsolidatedData].origin;
+
+        if (message.type != MessageType::RemoveLocalPilot && !Server::instance().isMaster(messageOrigin)) {
+            Logger::instance().log(Logger::LogSender::DataManager,
+                                   "Skipping server update for " + message.callsign + ": not master for " + messageOrigin,
+                                   Logger::LogLevel::Debug);
+            continue;
+        }
 
         switch (message.type) {
             case MessageType::UpdateEXOT:
@@ -442,9 +459,11 @@ DataManager::MessageType DataManager::deltaEuroscopeToBackend(const std::array<t
             deltaCount += 1;
             message["flightplan"]["arrival"] = data[EuroscopeData].destination;
         }
-        if (data[EuroscopeData].flightType != data[ServerData].flightType) {
+        const auto euroscopeFlightType =
+            inferFlightTypeFromRoute(data[EuroscopeData].origin, data[EuroscopeData].destination);
+        if (euroscopeFlightType != data[ServerData].flightType) {
             deltaCount += 1;
-            message["flightplan"]["flightType"] = data[EuroscopeData].flightType;
+            message["flightplan"]["flightType"] = euroscopeFlightType;
         }
         if (deltaCount == lastDelta) message.removeMember("flightplan");
 
@@ -562,10 +581,11 @@ void DataManager::forceFlightplanUpdate(EuroScopePlugIn::CFlightPlan flightplan)
     this->m_euroscopeFlightplanUpdates.push_back({std::chrono::utc_clock::now(), pilot});
 }
 
-void DataManager::prunePurgedCache(const std::set<std::string>& activeCallsigns) {
+void DataManager::prunePurgedCache() {
+    const auto now = std::chrono::utc_clock::now();
     std::lock_guard guard(this->m_euroscopeUpdatesLock);
     for (auto it = m_backendPurgedCallsigns.begin(); it != m_backendPurgedCallsigns.end();) {
-        if (activeCallsigns.find(it->first) == activeCallsigns.end()) {
+        if (now - it->second >= BackendPurgedCallsignTtl) {
             Logger::instance().log(Logger::LogSender::DataManager, "Pruning " + it->first + " from purged cache",
                                    Logger::LogLevel::Debug);
             it = m_backendPurgedCallsigns.erase(it);
@@ -710,8 +730,10 @@ void DataManager::consolidateData(std::array<types::Pilot, 3>& pilot) {
         pilot[ConsolidatedData].aobt = pilot[ServerData].aobt;
         pilot[ConsolidatedData].atot = pilot[ServerData].atot;
         pilot[ConsolidatedData].asrt = pilot[ServerData].asrt;
+        pilot[ConsolidatedData].ardt = pilot[ServerData].ardt;
         pilot[ConsolidatedData].aort = pilot[ServerData].aort;
         pilot[ConsolidatedData].tsatReset = pilot[ServerData].tsatReset;
+        pilot[ConsolidatedData].ready = pilot[ServerData].ready;
 
         pilot[ConsolidatedData].hasBooking = pilot[ServerData].hasBooking;
         pilot[ConsolidatedData].taxizoneIsTaxiout = pilot[ServerData].taxizoneIsTaxiout;
@@ -779,9 +801,12 @@ void DataManager::processEuroScopeUpdates(std::map<std::string, std::array<types
             // Carry over locally recorded milestones until the backend confirms
             // or clears them. EuroScope flight-plan updates do not contain these.
             const auto& prevConsolidated = it->second[ConsolidatedData];
+            if (prevConsolidated.ardt != types::defaultTime) updatedPilot.ardt = prevConsolidated.ardt;
+            if (prevConsolidated.asrt != types::defaultTime) updatedPilot.asrt = prevConsolidated.asrt;
             if (prevConsolidated.asat != types::defaultTime) updatedPilot.asat = prevConsolidated.asat;
             if (prevConsolidated.aobt != types::defaultTime) updatedPilot.aobt = prevConsolidated.aobt;
             if (prevConsolidated.atot != types::defaultTime) updatedPilot.atot = prevConsolidated.atot;
+            updatedPilot.ready = prevConsolidated.ready;
         } else {
             // Pilot not found, add a new entry
             Logger::instance().log(Logger::LogSender::DataManager,
@@ -792,8 +817,9 @@ void DataManager::processEuroScopeUpdates(std::map<std::string, std::array<types
 
         // --- ASAT auto-recording (STUP / PUSH transition) ---
         bool hasAsrt = (it != pilots.end() && it->second[ConsolidatedData].asrt != types::defaultTime);
+        const bool masterForPilot = Server::instance().isMaster(updatedPilot.origin);
 
-        if (updatedPilot.asat == types::defaultTime && hasAsrt) {
+        if (masterForPilot && updatedPilot.asat == types::defaultTime && hasAsrt) {
             bool wasSTUPorPUSH = (prevGS == "STUP" || prevGS == "PUSH");
             bool isSTUPorPUSH = (newGS == "STUP" || newGS == "PUSH");
             if (!wasSTUPorPUSH && isSTUPorPUSH) {
@@ -813,7 +839,7 @@ void DataManager::processEuroScopeUpdates(std::map<std::string, std::array<types
         }
 // (AOBT logic below)
         // --- AOBT auto-recording (PUSH / TAXI transition) ---
-        if (updatedPilot.aobt == types::defaultTime && hasAsrt) {
+        if (masterForPilot && updatedPilot.aobt == types::defaultTime && hasAsrt) {
             bool wasPUSHorTAXI = (prevGS == "PUSH" || prevGS == "TAXI");
             bool isPUSHorTAXI = (newGS == "PUSH" || newGS == "TAXI");
             if (!wasPUSHorTAXI && isPUSHorTAXI) {
@@ -833,7 +859,7 @@ void DataManager::processEuroScopeUpdates(std::map<std::string, std::array<types
         }
 
         // --- ATOT auto-recording (TAKE OFF / DEPA transition) ---
-        if (updatedPilot.atot == types::defaultTime) {
+        if (masterForPilot && updatedPilot.atot == types::defaultTime) {
             bool wasTakeOff = (prevGS == "TAKE OFF" || prevGS == "DEPA");
             bool isTakeOff = (newGS == "TAKE OFF" || newGS == "DEPA");
             if (!wasTakeOff && isTakeOff) {
@@ -860,6 +886,32 @@ void DataManager::consolidateFlightplanUpdates(std::list<DataManager::EuroscopeF
 
     for (const auto& currentUpdate : inputList) {
         auto pilot = currentUpdate.data;
+
+        if (pilot.forceReactivate) {
+            std::lock_guard guard(this->m_euroscopeUpdatesLock);
+            this->m_backendPurgedCallsigns.erase(pilot.callsign);
+        } else {
+            bool suppressedByBackendPurge = false;
+            {
+                const auto now = std::chrono::utc_clock::now();
+                std::lock_guard guard(this->m_euroscopeUpdatesLock);
+                const auto purged = this->m_backendPurgedCallsigns.find(pilot.callsign);
+                if (purged != this->m_backendPurgedCallsigns.end()) {
+                    if (now - purged->second < BackendPurgedCallsignTtl) {
+                        suppressedByBackendPurge = true;
+                    } else {
+                        this->m_backendPurgedCallsigns.erase(purged);
+                    }
+                }
+            }
+            if (suppressedByBackendPurge) {
+                Logger::instance().log(
+                    Logger::LogSender::DataManager,
+                    "Ignoring " + pilot.callsign + ": recently purged by backend",
+                    Logger::LogLevel::Debug);
+                continue;
+            }
+        }
 
         // only handle updates for active airports
         {
@@ -959,8 +1011,7 @@ types::Pilot DataManager::CFlightPlanToPilot(const EuroScopePlugIn::CFlightPlan 
     const char* route = flightplan.GetFlightPlanData().GetRoute();
     pilot.route = (route != nullptr) ? route : "";
 
-    const bool isDomestic = pilot.origin.rfind("VV", 0) == 0 && pilot.destination.rfind("VV", 0) == 0;
-    pilot.flightType = isDomestic ? "DOMESTIC" : "INTERNATIONAL";
+    pilot.flightType = inferFlightTypeFromRoute(pilot.origin, pilot.destination);
 
     if (pilot.callsign.length() >= 3) {
         pilot.airline = pilot.callsign.substr(0, 3);

@@ -18,6 +18,10 @@ static std::string __receivedPatchData;
 static std::string __receivedPostData;
 static const std::set<std::string> kHardcodedSupportedAirports{"VVTS", "VVNB"};
 
+static std::string inferFlightTypeFromRoute(const std::string& origin, const std::string& destination) {
+    return origin.rfind("VV", 0) == 0 && destination.rfind("VV", 0) == 0 ? "DOMESTIC" : "INTERNATIONAL";
+}
+
 static vacdm::types::Pilot parsePilotJson(const Json::Value& pilot) {
     vacdm::types::Pilot parsed;
 
@@ -518,8 +522,7 @@ void Server::postPilot(types::Pilot pilot) {
     root["taxizone"] = Json::Value::nullSingleton();
     root["aircraft"] = pilot.aircraft;
     root["route"] = pilot.route;
-    const bool isDomestic = pilot.origin.rfind("VV", 0) == 0 && pilot.destination.rfind("VV", 0) == 0;
-    root["flightType"] = pilot.flightType.empty() ? (isDomestic ? "DOMESTIC" : "INTERNATIONAL") : pilot.flightType;
+    root["flightType"] = inferFlightTypeFromRoute(pilot.origin, pilot.destination);
     root["airline"] = pilot.airline;
     root["exemptFromCdm"] = false;
     root["vacdm"] = Json::Value();
